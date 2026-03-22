@@ -1,4 +1,22 @@
 {
-  "worktrees": {},
-  "sessions": {}
+  "worktrees": {
+    "wt-1774180847194-1": {
+      "branch": "sleet-terrier",
+      "path": "d:\\Projects\\code-course\\.kilo\\worktrees\\sleet-terrier",
+      "parentBranch": "main",
+      "createdAt": "2026-03-22T12:00:47.194Z",
+      "remote": "origin"
+    }
+  },
+  "sessions": {
+    "ses_2ea94a6b8ffe0gxfmAaeNJPVpG": {
+      "worktreeId": "wt-1774180847194-1",
+      "createdAt": "2026-03-22T12:00:49.990Z"
+    },
+    "ses_2ea92b084ffecf4pXU6lcJYEAF": {
+      "worktreeId": null,
+      "createdAt": "2026-03-22T12:02:58.574Z"
+    }
+  },
+  "sessionsCollapsed": true
 }
