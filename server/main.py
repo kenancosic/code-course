@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import os
 
-from server.routers import roadmaps, courses
+from server.routers import roadmaps, courses, progress, profile, practice
 
 
 @asynccontextmanager
@@ -43,9 +43,9 @@ def create_app() -> FastAPI:
     # Include routers with /api prefix
     app.include_router(roadmaps.router, prefix="/api")
     app.include_router(courses.router, prefix="/api")
-    # Add more routers here as they are created
-    # app.include_router(progress.router, prefix="/api")
-    # app.include_router(auth.router, prefix="/api")
+    app.include_router(progress.router, prefix="/api")
+    app.include_router(profile.router, prefix="/api")
+    app.include_router(practice.router, prefix="/api")
     
     # Exception handlers
     @app.exception_handler(Exception)

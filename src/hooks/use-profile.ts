@@ -1,28 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { UserProfile, UpdateProfileRequest } from '../types/progress';
 
-interface Profile {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string | null;
-  bio: string;
-  preferences: {
-    emailNotifications: boolean;
-    publicProfile: boolean;
-  };
-}
-
-interface UpdateProfileData {
-  name?: string;
-  bio?: string;
-  avatar?: string;
-  preferences?: {
-    emailNotifications?: boolean;
-    publicProfile?: boolean;
-  };
-}
-
-const fetchProfile = async (): Promise<Profile> => {
+const fetchProfile = async (): Promise<UserProfile> => {
   const response = await fetch('/api/profile');
   if (!response.ok) {
     throw new Error('Failed to fetch profile');
@@ -30,9 +9,9 @@ const fetchProfile = async (): Promise<Profile> => {
   return response.json();
 };
 
-const updateProfile = async (data: UpdateProfileData): Promise<Profile> => {
+const updateProfile = async (data: UpdateProfileRequest): Promise<UserProfile> => {
   const response = await fetch('/api/profile', {
-    method: 'PATCH',
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });

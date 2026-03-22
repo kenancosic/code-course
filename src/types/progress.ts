@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { HexColorSchema, TierSchema } from './roadmap';
 
+// Legacy types - keep for backwards compatibility
 export interface Skill {
   id: string;
   name: string;
@@ -45,36 +46,6 @@ export const UserAchievementSchema: z.ZodSchema<UserAchievement> = z.object({
   unlockedAt: z.date(),
   category: z.string().min(1).max(50),
   points: z.number().int().min(0),
-});
-
-export interface UserProfile {
-  id: string;
-  email: string;
-  username: string;
-  displayName: string;
-  avatarUrl?: string;
-  bio: string;
-  timezone: string;
-  isPublic: boolean;
-  totalPoints: number;
-  streakDays: number;
-  joinedAt: Date;
-  lastActiveAt: Date;
-}
-
-export const UserProfileSchema: z.ZodSchema<UserProfile> = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
-  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),
-  displayName: z.string().min(1).max(50),
-  avatarUrl: z.string().url().optional(),
-  bio: z.string().max(500),
-  timezone: z.string().min(1),
-  isPublic: z.boolean(),
-  totalPoints: z.number().int().min(0),
-  streakDays: z.number().int().min(0),
-  joinedAt: z.date(),
-  lastActiveAt: z.date(),
 });
 
 export interface LessonProgress {
@@ -152,3 +123,78 @@ export const UserProgressSchema: z.ZodSchema<UserProgress> = z.object({
   lastStudyDate: z.date().optional(),
   totalStudyTimeMinutes: z.number().int().min(0),
 });
+
+// === New Backend API Types ===
+
+// UserProfile from backend
+export interface UserProfile {
+  display_name: string;
+  avatar_seed: string;
+  level: number;
+  title: string;
+  total_xp: number;
+  xp_to_next_level: number;
+  quests_completed: number;
+  current_path: {
+    id: string;
+    title: string;
+  } | null;
+  skills: Skill[];
+  recent_activity: Activity[];
+}
+
+export interface Activity {
+  id: string;
+  type: 'lesson_completed' | 'course_completed' | 'achievement_unlocked' | 'practice_completed';
+  title: string;
+  description: string;
+  xp_earned: number;
+  timestamp: string;
+}
+
+export interface ProgressSummary {
+  total_xp: number;
+  level: number;
+  xp_to_next_level: number;
+  lessons_completed: number;
+  courses_completed: number;
+  current_streak: number;
+  achievements_unlocked: number;
+}
+
+export interface RoadmapProgress {
+  path_id: string;
+  path_title: string;
+  nodes_completed: number;
+  total_nodes: number;
+  progress_percentage: number;
+  current_node_id: string | null;
+}
+
+export interface CourseProgressDetail {
+  course_id: string;
+  course_title: string;
+  lessons_completed: number;
+  total_lessons: number;
+  progress_percentage: number;
+  current_lesson_id: string | null;
+}
+
+export interface CompleteLessonRequest {
+  lesson_id: string;
+  course_id: string;
+  time_spent_minutes: number;
+}
+
+export interface CompleteLessonResponse {
+  xp_earned: number;
+  level_up: boolean;
+  new_level?: number;
+  achievements_unlocked: string[];
+}
+
+export interface UpdateProfileRequest {
+  display_name?: string;
+  avatar_seed?: string;
+  title?: string;
+}
