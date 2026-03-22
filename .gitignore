@@ -6,4 +6,21 @@ dist/
 *.log
 .DS_Store
 *.local
-.env.example
+
+# Server
+server/__pycache__/
+server/*.db
+server/*.db-journal
+server/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Windows reserved names
+nul
+prn
+aux
+con

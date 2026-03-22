@@ -8,8 +8,8 @@ class RoadmapNodeBase(BaseModel):
     description: Optional[str] = None
     position_x: int = 0
     position_y: int = 0
-    node_type: str = "default"
-    course_id: Optional[int] = None
+    tier: int = 1
+    topic_keywords: Optional[str] = None
 
 
 class RoadmapNodeCreate(RoadmapNodeBase):
@@ -18,14 +18,14 @@ class RoadmapNodeCreate(RoadmapNodeBase):
 
 class RoadmapNodeResponse(RoadmapNodeBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     path_id: int
 
 
 class RoadmapConnectionBase(BaseModel):
-    source_node_id: int
-    target_node_id: int
+    from_node_id: int
+    to_node_id: int
     connection_type: str = "default"
 
 
@@ -35,7 +35,7 @@ class RoadmapConnectionCreate(RoadmapConnectionBase):
 
 class RoadmapConnectionResponse(RoadmapConnectionBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     path_id: int
 
@@ -43,8 +43,10 @@ class RoadmapConnectionResponse(RoadmapConnectionBase):
 class RoadmapPathBase(BaseModel):
     title: str
     description: Optional[str] = None
-    category: Optional[str] = None
-    is_published: bool = False
+    icon: Optional[str] = None
+    colors: Optional[str] = None
+    sort_order: int = 0
+    is_locked: bool = False
 
 
 class RoadmapPathCreate(RoadmapPathBase):
@@ -53,7 +55,7 @@ class RoadmapPathCreate(RoadmapPathBase):
 
 class RoadmapPathResponse(RoadmapPathBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     nodes: List[RoadmapNodeResponse] = []
     connections: List[RoadmapConnectionResponse] = []

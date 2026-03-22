@@ -1,7 +1,7 @@
 """Seed script to populate database with roadmap data from JSON files."""
 import os
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import json
 from pathlib import Path
@@ -9,8 +9,9 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database import Base
-from models import RoadmapPath, RoadmapNode, RoadmapConnection, UserProfile
+from server.database import Base
+from server.models import RoadmapPath, RoadmapNode, RoadmapConnection
+from server.models.progress import UserProfile
 
 
 def load_json_data(filename: str) -> dict:

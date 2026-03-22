@@ -1,13 +1,14 @@
 """Course and lesson schemas."""
 from typing import List, Optional
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
 class LessonBase(BaseModel):
     title: str
-    content: str
-    order_index: int = 0
-    duration_minutes: Optional[int] = None
+    content_markdown: Optional[str] = None
+    sort_order: int = 0
+    xp_reward: int = 10
 
 
 class LessonCreate(LessonBase):
@@ -16,7 +17,7 @@ class LessonCreate(LessonBase):
 
 class LessonResponse(LessonBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     course_id: int
 
@@ -24,9 +25,10 @@ class LessonResponse(LessonBase):
 class CourseBase(BaseModel):
     title: str
     description: Optional[str] = None
-    category: Optional[str] = None
-    difficulty: str = "beginner"
-    is_published: bool = False
+    roadmap_node_id: int
+    status: str = "locked"
+    total_lessons: int = 0
+    total_xp: int = 0
 
 
 class CourseCreate(CourseBase):
@@ -35,6 +37,13 @@ class CourseCreate(CourseBase):
 
 class CourseResponse(CourseBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
+    created_at: Optional[datetime] = None
     lessons: List[LessonResponse] = []
+
+
+class GenerateCourseRequest(BaseModel):
+    """Request body for POST /api/courses/generate."""
+    roadmap_node_id: int
+    model: Optional[str] = None

@@ -7,17 +7,20 @@ import { Skeleton } from "../components/ui/skeleton";
 import { useRoadmaps } from "../../hooks";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  frontend: Monitor,
-  backend: Server,
-  devops: Cloud,
-  database: Database,
+  Monitor,
+  Server,
+  Cloud,
+  Database,
 };
 
 const colorMap: Record<string, string> = {
-  frontend: "from-blue-600 to-cyan-500",
-  backend: "from-emerald-600 to-green-500",
-  devops: "from-orange-600 to-red-500",
-  database: "from-purple-600 to-pink-500",
+  "from-orange-500 to-amber-500": "from-orange-500 to-amber-500",
+  "from-emerald-600 to-green-500": "from-emerald-600 to-green-500",
+  "from-orange-600 to-red-500": "from-orange-600 to-red-500",
+  "from-purple-600 to-pink-500": "from-purple-600 to-pink-500",
+  "from-blue-500 to-cyan-500": "from-blue-500 to-cyan-500",
+  "from-green-500 to-emerald-500": "from-green-500 to-emerald-500",
+  "from-purple-500 to-violet-500": "from-purple-500 to-violet-500",
 };
 
 export function RoadmapList() {
@@ -79,9 +82,9 @@ export function RoadmapList() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
         {roadmaps?.map((roadmap) => {
-          const Icon = iconMap[roadmap.icon] || Compass;
-          const colorClass = colorMap[roadmap.icon] || "from-slate-600 to-slate-500";
-          const courseCount = roadmap.courses?.length || 0;
+          const Icon = (roadmap.icon ? iconMap[roadmap.icon] : null) || Compass;
+          const colorClass = (roadmap.colors ? colorMap[roadmap.colors] : null) || "from-slate-600 to-slate-500";
+          const nodeCount = roadmap.nodes?.length || 0;
           
           return (
             <Card 
@@ -98,13 +101,14 @@ export function RoadmapList() {
                 <div className="flex-1">
                   <CardTitle className="text-xl flex items-center justify-between">
                     <span className="text-slate-100">{roadmap.title}</span>
+                    {roadmap.is_locked && <Lock className="w-4 h-4 text-slate-500" />}
                   </CardTitle>
                   <CardDescription className="mt-2 line-clamp-2 text-slate-400">{roadmap.description}</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 relative z-10">
                 <div className="flex justify-between text-xs text-slate-500 font-medium tracking-wider uppercase">
-                  <span>{courseCount} Courses</span>
+                  <span>{nodeCount} Topics</span>
                   <span>0% Explored</span>
                 </div>
                 <Progress value={0} className="h-2" />
