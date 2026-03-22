@@ -1,0 +1,95 @@
+{
+  "path": {
+    "id": 2,
+    "title": "Backend Development",
+    "description": "Build robust server-side applications, APIs, and databases. Learn to handle authentication, security, and scalability.",
+    "icon": "Server",
+    "colors": "from-blue-500 to-cyan-500",
+    "sort_order": 2,
+    "is_locked": false
+  },
+  "nodes": [
+    {
+      "id": 101,
+      "title": "Internet & Networking",
+      "description": "Understanding TCP/IP, HTTP protocols, DNS, and how clients communicate with servers.",
+      "position_x": 100,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "tcpip, http, networking, dns, protocols"
+    },
+    {
+      "id": 102,
+      "title": "OS Basics",
+      "description": "Operating system fundamentals: processes, threads, memory management, and file systems.",
+      "position_x": 300,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "os, operating-system, processes, threads, memory"
+    },
+    {
+      "id": 103,
+      "title": "Programming Language",
+      "description": "Choose and master a backend language: Python, Node.js, Java, Go, or Ruby.",
+      "position_x": 500,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "python, nodejs, java, golang, ruby, backend-language"
+    },
+    {
+      "id": 104,
+      "title": "Version Control",
+      "description": "Git workflows, branching strategies, and collaborative development practices.",
+      "position_x": 700,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "git, version-control, collaboration, github, gitlab"
+    },
+    {
+      "id": 105,
+      "title": "Relational Databases",
+      "description": "SQL fundamentals, database design, normalization, and querying with PostgreSQL or MySQL.",
+      "position_x": 100,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "sql, postgres, mysql, database, rdbms, normalization"
+    },
+    {
+      "id": 106,
+      "title": "NoSQL Databases",
+      "description": "Document stores, key-value databases, and when to use MongoDB or Redis.",
+      "position_x": 300,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "nosql, mongodb, redis, document-db, key-value"
+    },
+    {
+      "id": 107,
+      "title": "APIs & REST",
+      "description": "Designing and building RESTful APIs: endpoints, HTTP methods, status codes, and best practices.",
+      "position_x": 500,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "api, rest, endpoints, http, json, crud"
+    },
+    {
+      "id": 108,
+      "title": "Authentication",
+      "description": "Secure your APIs: JWT, OAuth2, session-based auth, and password hashing.",
+      "position_x": 700,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "auth, jwt, oauth, security, authentication, authorization"
+    }
+  ],
+  "connections": [
+    {"from_node_id": 101, "to_node_id": 102, "connection_type": "default"},
+    {"from_node_id": 102, "to_node_id": 103, "connection_type": "default"},
+    {"from_node_id": 103, "to_node_id": 104, "connection_type": "default"},
+    {"from_node_id": 104, "to_node_id": 105, "connection_type": "default"},
+    {"from_node_id": 104, "to_node_id": 106, "connection_type": "default"},
+    {"from_node_id": 105, "to_node_id": 107, "connection_type": "default"},
+    {"from_node_id": 106, "to_node_id": 107, "connection_type": "default"},
+    {"from_node_id": 107, "to_node_id": 108, "connection_type": "default"}
+  ]
+}

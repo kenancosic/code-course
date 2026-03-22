@@ -1,0 +1,259 @@
+{
+  "path": {
+    "id": 1,
+    "title": "Frontend Development",
+    "description": "Master modern frontend development with HTML, CSS, JavaScript, and React. Build responsive, interactive web applications from scratch.",
+    "icon": "Monitor",
+    "colors": "from-orange-500 to-amber-500",
+    "sort_order": 1,
+    "is_locked": false
+  },
+  "nodes": [
+    {
+      "id": 1,
+      "title": "Internet Basics",
+      "description": "Understanding how the internet works, HTTP/HTTPS protocols, DNS, and web browsers.",
+      "position_x": 100,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "internet, http, https, dns, browser, web"
+    },
+    {
+      "id": 2,
+      "title": "HTML Fundamentals",
+      "description": "Learn semantic HTML5, document structure, forms, and accessibility basics.",
+      "position_x": 300,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "html, html5, semantic, markup, structure"
+    },
+    {
+      "id": 3,
+      "title": "CSS Basics",
+      "description": "Master CSS selectors, box model, typography, colors, and basic layouts.",
+      "position_x": 500,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "css, styling, selectors, box-model, layout"
+    },
+    {
+      "id": 4,
+      "title": "CSS Layouts",
+      "description": "Deep dive into Flexbox, Grid, positioning, and responsive design principles.",
+      "position_x": 700,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "flexbox, grid, responsive, media-queries, layout"
+    },
+    {
+      "id": 5,
+      "title": "JavaScript Basics",
+      "description": "Learn JavaScript fundamentals: variables, types, functions, and control flow.",
+      "position_x": 100,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "javascript, js, variables, functions, es6"
+    },
+    {
+      "id": 6,
+      "title": "DOM Manipulation",
+      "description": "Interact with web pages using the Document Object Model and event handling.",
+      "position_x": 300,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "dom, events, manipulation, selectors, browser-api"
+    },
+    {
+      "id": 7,
+      "title": "Async JavaScript",
+      "description": "Master promises, async/await, fetch API, and handling asynchronous operations.",
+      "position_x": 500,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "async, promises, fetch, api, await, callbacks"
+    },
+    {
+      "id": 8,
+      "title": "ES6+ Features",
+      "description": "Modern JavaScript: arrow functions, destructuring, modules, spread operator, and more.",
+      "position_x": 700,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "es6, es2015, modules, arrow-functions, modern-js"
+    },
+    {
+      "id": 9,
+      "title": "Git & GitHub",
+      "description": "Version control with Git: commits, branches, merges, and collaboration on GitHub.",
+      "position_x": 900,
+      "position_y": 200,
+      "tier": 2,
+      "topic_keywords": "git, github, version-control, collaboration, branching"
+    },
+    {
+      "id": 10,
+      "title": "Package Managers",
+      "description": "npm, yarn, and pnpm: managing dependencies and scripts in JavaScript projects.",
+      "position_x": 100,
+      "position_y": 500,
+      "tier": 3,
+      "topic_keywords": "npm, yarn, packages, dependencies, node_modules"
+    },
+    {
+      "id": 11,
+      "title": "Build Tools",
+      "description": "Webpack, Vite, and Parcel: bundling, transpiling, and optimizing your code.",
+      "position_x": 300,
+      "position_y": 500,
+      "tier": 3,
+      "topic_keywords": "webpack, vite, bundler, babel, transpile, build"
+    },
+    {
+      "id": 12,
+      "title": "React Basics",
+      "description": "Introduction to React: components, JSX, props, and state management fundamentals.",
+      "position_x": 500,
+      "position_y": 500,
+      "tier": 3,
+      "topic_keywords": "react, jsx, components, props, state, jsx"
+    },
+    {
+      "id": 13,
+      "title": "React Hooks",
+      "description": "Master useState, useEffect, useContext, and custom hooks for stateful logic.",
+      "position_x": 700,
+      "position_y": 500,
+      "tier": 3,
+      "topic_keywords": "react-hooks, useState, useEffect, useContext, custom-hooks"
+    },
+    {
+      "id": 14,
+      "title": "React Router",
+      "description": "Client-side routing with React Router: navigation, params, and protected routes.",
+      "position_x": 900,
+      "position_y": 500,
+      "tier": 3,
+      "topic_keywords": "react-router, routing, navigation, spa, client-side"
+    },
+    {
+      "id": 15,
+      "title": "State Management",
+      "description": "Redux, Zustand, and Context API: managing global state in React applications.",
+      "position_x": 100,
+      "position_y": 700,
+      "tier": 4,
+      "topic_keywords": "redux, zustand, state-management, context, store"
+    },
+    {
+      "id": 16,
+      "title": "Styled Components",
+      "description": "CSS-in-JS with Styled Components: component-based styling and theming.",
+      "position_x": 300,
+      "position_y": 700,
+      "tier": 4,
+      "topic_keywords": "styled-components, css-in-js, theming, styling"
+    },
+    {
+      "id": 17,
+      "title": "Tailwind CSS",
+      "description": "Utility-first CSS framework for rapid UI development and responsive design.",
+      "position_x": 500,
+      "position_y": 700,
+      "tier": 4,
+      "topic_keywords": "tailwind, utility-css, responsive, framework"
+    },
+    {
+      "id": 18,
+      "title": "TypeScript",
+      "description": "Add type safety to JavaScript: interfaces, generics, and type inference.",
+      "position_x": 700,
+      "position_y": 700,
+      "tier": 4,
+      "topic_keywords": "typescript, types, interfaces, generics, type-safety"
+    },
+    {
+      "id": 19,
+      "title": "Testing Basics",
+      "description": "Unit and integration testing with Jest, React Testing Library, and Cypress.",
+      "position_x": 900,
+      "position_y": 700,
+      "tier": 4,
+      "topic_keywords": "jest, testing-library, cypress, unit-tests, e2e"
+    },
+    {
+      "id": 20,
+      "title": "Next.js",
+      "description": "Full-stack React framework: SSR, SSG, API routes, and file-based routing.",
+      "position_x": 100,
+      "position_y": 900,
+      "tier": 5,
+      "topic_keywords": "nextjs, ssr, ssg, server-side, framework"
+    },
+    {
+      "id": 21,
+      "title": "Performance",
+      "description": "Web performance optimization: lazy loading, code splitting, and Core Web Vitals.",
+      "position_x": 300,
+      "position_y": 900,
+      "tier": 5,
+      "topic_keywords": "performance, optimization, lazy-loading, web-vitals"
+    },
+    {
+      "id": 22,
+      "title": "Authentication",
+      "description": "Implement auth: JWT, OAuth, session management, and protected routes.",
+      "position_x": 500,
+      "position_y": 900,
+      "tier": 5,
+      "topic_keywords": "auth, jwt, oauth, authentication, security"
+    },
+    {
+      "id": 23,
+      "title": "PWA",
+      "description": "Progressive Web Apps: service workers, offline support, and app-like experiences.",
+      "position_x": 700,
+      "position_y": 900,
+      "tier": 5,
+      "topic_keywords": "pwa, service-worker, offline, manifest, mobile"
+    },
+    {
+      "id": 24,
+      "title": "Deployment",
+      "description": "Deploy your apps: Vercel, Netlify, CI/CD pipelines, and production best practices.",
+      "position_x": 900,
+      "position_y": 900,
+      "tier": 5,
+      "topic_keywords": "deployment, vercel, netlify, cicd, production"
+    }
+  ],
+  "connections": [
+    {"from_node_id": 1, "to_node_id": 2, "connection_type": "default"},
+    {"from_node_id": 2, "to_node_id": 3, "connection_type": "default"},
+    {"from_node_id": 3, "to_node_id": 4, "connection_type": "default"},
+    {"from_node_id": 1, "to_node_id": 5, "connection_type": "default"},
+    {"from_node_id": 5, "to_node_id": 6, "connection_type": "default"},
+    {"from_node_id": 6, "to_node_id": 7, "connection_type": "default"},
+    {"from_node_id": 7, "to_node_id": 8, "connection_type": "default"},
+    {"from_node_id": 4, "to_node_id": 9, "connection_type": "default"},
+    {"from_node_id": 8, "to_node_id": 9, "connection_type": "default"},
+    {"from_node_id": 9, "to_node_id": 10, "connection_type": "default"},
+    {"from_node_id": 10, "to_node_id": 11, "connection_type": "default"},
+    {"from_node_id": 11, "to_node_id": 12, "connection_type": "default"},
+    {"from_node_id": 12, "to_node_id": 13, "connection_type": "default"},
+    {"from_node_id": 13, "to_node_id": 14, "connection_type": "default"},
+    {"from_node_id": 13, "to_node_id": 15, "connection_type": "default"},
+    {"from_node_id": 12, "to_node_id": 16, "connection_type": "default"},
+    {"from_node_id": 12, "to_node_id": 17, "connection_type": "default"},
+    {"from_node_id": 8, "to_node_id": 18, "connection_type": "default"},
+    {"from_node_id": 12, "to_node_id": 19, "connection_type": "default"},
+    {"from_node_id": 14, "to_node_id": 20, "connection_type": "default"},
+    {"from_node_id": 17, "to_node_id": 20, "connection_type": "default"},
+    {"from_node_id": 18, "to_node_id": 20, "connection_type": "default"},
+    {"from_node_id": 20, "to_node_id": 21, "connection_type": "default"},
+    {"from_node_id": 20, "to_node_id": 22, "connection_type": "default"},
+    {"from_node_id": 20, "to_node_id": 23, "connection_type": "default"},
+    {"from_node_id": 21, "to_node_id": 24, "connection_type": "default"},
+    {"from_node_id": 22, "to_node_id": 24, "connection_type": "default"},
+    {"from_node_id": 23, "to_node_id": 24, "connection_type": "default"}
+  ]
+}

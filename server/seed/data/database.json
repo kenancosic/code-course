@@ -1,0 +1,75 @@
+{
+  "path": {
+    "id": 4,
+    "title": "Database Engineering",
+    "description": "Deep dive into database design, optimization, and administration. Master SQL, NoSQL, and data modeling.",
+    "icon": "Database",
+    "colors": "from-purple-500 to-violet-500",
+    "sort_order": 4,
+    "is_locked": false
+  },
+  "nodes": [
+    {
+      "id": 301,
+      "title": "SQL Fundamentals",
+      "description": "SELECT, INSERT, UPDATE, DELETE, JOINs, and basic query optimization.",
+      "position_x": 100,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "sql, queries, joins, select, database"
+    },
+    {
+      "id": 302,
+      "title": "Database Design",
+      "description": "ER diagrams, normalization, relationships, and schema design principles.",
+      "position_x": 300,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "design, normalization, erd, schema, relationships"
+    },
+    {
+      "id": 303,
+      "title": "Advanced SQL",
+      "description": "Subqueries, CTEs, window functions, stored procedures, and triggers.",
+      "position_x": 500,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "advanced-sql, cte, window-functions, procedures"
+    },
+    {
+      "id": 304,
+      "title": "Indexing & Optimization",
+      "description": "Query performance, indexing strategies, execution plans, and profiling.",
+      "position_x": 100,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "indexing, optimization, performance, query-plan"
+    },
+    {
+      "id": 305,
+      "title": "NoSQL Systems",
+      "description": "MongoDB, Cassandra, Redis: document, column, and key-value stores.",
+      "position_x": 300,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "nosql, mongodb, cassandra, redis, document"
+    },
+    {
+      "id": 306,
+      "title": "Transactions & ACID",
+      "description": "Transaction management, isolation levels, and ensuring data consistency.",
+      "position_x": 500,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "transactions, acid, consistency, isolation, locking"
+    }
+  ],
+  "connections": [
+    {"from_node_id": 301, "to_node_id": 302, "connection_type": "default"},
+    {"from_node_id": 302, "to_node_id": 303, "connection_type": "default"},
+    {"from_node_id": 301, "to_node_id": 304, "connection_type": "default"},
+    {"from_node_id": 303, "to_node_id": 304, "connection_type": "default"},
+    {"from_node_id": 302, "to_node_id": 305, "connection_type": "default"},
+    {"from_node_id": 303, "to_node_id": 306, "connection_type": "default"}
+  ]
+}

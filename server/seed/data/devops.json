@@ -1,0 +1,75 @@
+{
+  "path": {
+    "id": 3,
+    "title": "DevOps",
+    "description": "Master the practices of continuous integration, deployment, and infrastructure management. Automate and scale your applications.",
+    "icon": "Cloud",
+    "colors": "from-green-500 to-emerald-500",
+    "sort_order": 3,
+    "is_locked": false
+  },
+  "nodes": [
+    {
+      "id": 201,
+      "title": "Linux Fundamentals",
+      "description": "Command line, file system, permissions, and shell scripting basics.",
+      "position_x": 100,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "linux, bash, shell, command-line, unix"
+    },
+    {
+      "id": 202,
+      "title": "Version Control",
+      "description": "Git advanced workflows, hooks, and repository management.",
+      "position_x": 300,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "git, github, gitlab, version-control, ci"
+    },
+    {
+      "id": 203,
+      "title": "Containers",
+      "description": "Docker fundamentals: images, containers, Dockerfile, and docker-compose.",
+      "position_x": 500,
+      "position_y": 100,
+      "tier": 1,
+      "topic_keywords": "docker, containers, images, dockerfile, containerization"
+    },
+    {
+      "id": 204,
+      "title": "CI/CD",
+      "description": "Continuous Integration and Deployment with GitHub Actions, Jenkins, or GitLab CI.",
+      "position_x": 100,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "cicd, github-actions, jenkins, pipeline, automation"
+    },
+    {
+      "id": 205,
+      "title": "Cloud Platforms",
+      "description": "AWS, Azure, or GCP basics: compute, storage, and networking services.",
+      "position_x": 300,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "aws, azure, gcp, cloud, infrastructure"
+    },
+    {
+      "id": 206,
+      "title": "Kubernetes",
+      "description": "Container orchestration: pods, services, deployments, and scaling.",
+      "position_x": 500,
+      "position_y": 300,
+      "tier": 2,
+      "topic_keywords": "kubernetes, k8s, orchestration, containers, scaling"
+    }
+  ],
+  "connections": [
+    {"from_node_id": 201, "to_node_id": 202, "connection_type": "default"},
+    {"from_node_id": 202, "to_node_id": 203, "connection_type": "default"},
+    {"from_node_id": 203, "to_node_id": 204, "connection_type": "default"},
+    {"from_node_id": 203, "to_node_id": 206, "connection_type": "default"},
+    {"from_node_id": 204, "to_node_id": 205, "connection_type": "default"},
+    {"from_node_id": 205, "to_node_id": 206, "connection_type": "default"}
+  ]
+}
