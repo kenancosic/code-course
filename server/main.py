@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import os
 
-from server.routers import roadmaps
+from server.routers import roadmaps, courses
 
 
 @asynccontextmanager
@@ -42,8 +42,8 @@ def create_app() -> FastAPI:
     
     # Include routers with /api prefix
     app.include_router(roadmaps.router, prefix="/api")
+    app.include_router(courses.router, prefix="/api")
     # Add more routers here as they are created
-    # app.include_router(courses.router, prefix="/api")
     # app.include_router(progress.router, prefix="/api")
     # app.include_router(auth.router, prefix="/api")
     
@@ -62,14 +62,14 @@ def create_app() -> FastAPI:
             content={"detail": "Resource not found"}
         )
     
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy"}
+    
     # Static file serving for production (client build)
     static_dir = os.path.join(os.path.dirname(__file__), "..", "dist")
     if os.path.exists(static_dir):
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
-    
-    @app.get("/health")
-    async def health_check():
-        return {"status": "healthy"}
     
     return app
 

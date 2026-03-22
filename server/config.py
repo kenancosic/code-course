@@ -3,10 +3,10 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite:///./mythiccode.db"
+    DATABASE_URL: str = "sqlite:///./server/mythiccode.db"
     OPENROUTER_API_KEY: str | None = None
-    LLM_DEFAULT_MODEL: str = "anthropic/claude-3.5-sonnet"
-    LLM_FAST_MODEL: str = "google/gemini-flash-1.5"
+    LLM_DEFAULT_MODEL: str = "anthropic/claude-sonnet-4.6"
+    LLM_FAST_MODEL: str = "google/gemini-2.5-flash"
     DEBUG: bool = False
 
     class Config:

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
-from database import Base
+from server.database import Base
 
 
 class RoadmapPath(Base):
