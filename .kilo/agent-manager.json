@@ -6,6 +6,13 @@
       "parentBranch": "main",
       "createdAt": "2026-03-22T12:00:47.194Z",
       "remote": "origin"
+    },
+    "wt-1774194761737-1": {
+      "branch": "coal-wood",
+      "path": "d:\\Projects\\code-course\\.kilo\\worktrees\\coal-wood",
+      "parentBranch": "main",
+      "createdAt": "2026-03-22T15:52:41.737Z",
+      "remote": "origin"
     }
   },
   "sessions": {
@@ -20,6 +27,18 @@
     "ses_2ea310cdcffelQnsqhgNejJqji": {
       "worktreeId": "wt-1774180847194-1",
       "createdAt": "2026-03-22T13:49:37.447Z"
+    },
+    "ses_2e9c0546dffeIj74fxhmUHL9zC": {
+      "worktreeId": "wt-1774194761737-1",
+      "createdAt": "2026-03-22T15:52:44.708Z"
+    },
+    "ses_2e97fce0effeMNk8ZGtrlm6egy": {
+      "worktreeId": "wt-1774194761737-1",
+      "createdAt": "2026-03-22T17:03:13.395Z"
+    },
+    "ses_2e97fb727ffeOWsiU9SnWtSYpi": {
+      "worktreeId": "wt-1774180847194-1",
+      "createdAt": "2026-03-22T17:03:19.257Z"
     }
   },
   "sessionsCollapsed": true

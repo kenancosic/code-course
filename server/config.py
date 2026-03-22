@@ -10,8 +10,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     class Config:
-        env_file = ".env"
+        env_file = "server/.env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache

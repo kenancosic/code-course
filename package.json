@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "concurrently \"vite\" \"pnpm:dev:backend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "cross-env PYTHONPATH=. uvicorn server.main:app --reload --port 8000"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -71,6 +73,8 @@
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5"
   },
