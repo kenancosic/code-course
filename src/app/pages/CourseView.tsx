@@ -26,8 +26,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import { Button } from "../components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
+import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Progress } from "../components/ui/progress";
 import { Badge } from "../components/ui/badge";
@@ -184,7 +183,7 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
           error: (...args: unknown[]) => consoleOutput.push("Error: " + args.map(String).join(" ")),
         };
 
-        // eslint-disable-next-line no-new-func
+         
         const result = new Function("console", code)(mockConsole);
         if (result !== undefined) {
           consoleOutput.push(String(result));
@@ -211,13 +210,13 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+    <div className="flex flex-col h-full bg-background rounded-lg overflow-hidden border border-border">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
+      <div className="flex items-center justify-between px-3 py-2 bg-card border-b border-border">
         <div className="flex items-center gap-2">
-          <Code className="w-4 h-4 text-emerald-400" />
-          <span className="text-sm font-medium text-slate-300">Playground</span>
-          <Badge variant="outline" className="text-xs border-slate-700 text-slate-400">
+          <Code className="w-4 h-4 text-chart-2" />
+          <span className="text-sm font-medium text-foreground">Playground</span>
+          <Badge variant="outline" className="text-xs border-border text-muted-foreground">
             {language}
           </Badge>
         </div>
@@ -226,7 +225,7 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="h-7 text-slate-400 hover:text-white"
+            className="h-7 text-muted-foreground hover:text-foreground"
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1" />
             Reset
@@ -235,7 +234,7 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
             size="sm"
             onClick={handleRun}
             disabled={isRunning}
-            className="h-7 bg-emerald-600 hover:bg-emerald-500 text-white"
+            className="h-7 bg-chart-2 hover:bg-chart-2/80 text-foreground"
           >
             {isRunning ? (
               <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
@@ -268,13 +267,13 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
       </div>
 
       {/* Output Panel */}
-      <div className="h-40 border-t border-slate-800 bg-slate-900/50">
-        <div className="flex items-center gap-4 px-3 py-2 border-b border-slate-800">
+      <div className="h-40 border-t border-border bg-card/50">
+        <div className="flex items-center gap-4 px-3 py-2 border-b border-border">
           <button
             onClick={() => setActiveTab("output")}
             className={cn(
               "text-xs font-medium transition-colors",
-              activeTab === "output" ? "text-emerald-400" : "text-slate-500 hover:text-slate-300"
+              activeTab === "output" ? "text-chart-2" : "text-muted-foreground/70 hover:text-foreground"
             )}
           >
             Output
@@ -284,7 +283,7 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
               onClick={() => setActiveTab("tests")}
               className={cn(
                 "text-xs font-medium transition-colors",
-                activeTab === "tests" ? "text-emerald-400" : "text-slate-500 hover:text-slate-300"
+                activeTab === "tests" ? "text-chart-2" : "text-muted-foreground/70 hover:text-foreground"
               )}
             >
               Tests ({testCases.length})
@@ -295,16 +294,16 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
           <div className="p-3">
             {activeTab === "output" ? (
               output ? (
-                <pre className="text-sm font-mono text-slate-300 whitespace-pre-wrap">{output}</pre>
+                <pre className="text-sm font-mono text-foreground whitespace-pre-wrap">{output}</pre>
               ) : (
-                <p className="text-sm text-slate-500 italic">Click &quot;Run&quot; to see output</p>
+                <p className="text-sm text-muted-foreground/70 italic">Click &quot;Run&quot; to see output</p>
               )
             ) : (
               <div className="space-y-2">
                 {testCases?.map((test, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 text-slate-600" />
-                    <span className="text-slate-400">Test {i + 1}</span>
+                    <Check className="w-4 h-4 text-muted-foreground/50" />
+                    <span className="text-muted-foreground">Test {i + 1}</span>
                   </div>
                 ))}
               </div>
@@ -324,43 +323,43 @@ interface LessonContentProps {
 
 function LessonContent({ content, onTryIt }: LessonContentProps) {
   return (
-    <div className="prose prose-invert prose-slate max-w-none">
+    <div className="prose prose-invert prose-neutral max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
           h1: ({ children }) => (
-            <h1 className="text-3xl font-bold text-white mb-6 pb-4 border-b border-slate-800">
+            <h1 className="text-3xl font-bold text-foreground mb-6 pb-4 border-b border-border">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-xl font-semibold text-white mt-8 mb-4 flex items-center gap-2">
-              <div className="w-1.5 h-6 bg-indigo-500 rounded-full" />
+            <h2 className="text-xl font-semibold text-foreground mt-8 mb-4 flex items-center gap-2">
+              <div className="w-1.5 h-6 bg-primary rounded-full" />
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-lg font-medium text-slate-200 mt-6 mb-3">{children}</h3>
+            <h3 className="text-lg font-medium text-foreground mt-6 mb-3">{children}</h3>
           ),
           p: ({ children }) => (
-            <p className="text-slate-300 leading-relaxed mb-4">{children}</p>
+            <p className="text-foreground leading-relaxed mb-4">{children}</p>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc list-inside space-y-2 text-slate-300 mb-4 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-foreground mb-4 ml-2">
               {children}
             </ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-inside space-y-2 text-slate-300 mb-4 ml-2">
+            <ol className="list-decimal list-inside space-y-2 text-foreground mb-4 ml-2">
               {children}
             </ol>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-indigo-500 bg-indigo-500/10 pl-4 py-3 pr-4 rounded-r-lg my-6">
+            <blockquote className="border-l-4 border-primary bg-primary/10 pl-4 py-3 pr-4 rounded-r-lg my-6">
               <div className="flex items-start gap-3">
-                <Lightbulb className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-                <div className="text-slate-300">{children}</div>
+                <Lightbulb className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div className="text-foreground">{children}</div>
               </div>
             </blockquote>
           ),
@@ -372,27 +371,27 @@ function LessonContent({ content, onTryIt }: LessonContentProps) {
             const language = className.replace("language-", "").split(" ")[0] || "javascript";
 
             return (
-              <div className="my-6 rounded-lg overflow-hidden border border-slate-800">
-                <div className="flex items-center justify-between px-3 py-2 bg-slate-950 border-b border-slate-800">
-                  <span className="text-xs font-medium text-slate-500 uppercase">{language}</span>
+              <div className="my-6 rounded-lg overflow-hidden border border-border">
+                <div className="flex items-center justify-between px-3 py-2 bg-background border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground/70 uppercase">{language}</span>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => onTryIt(code, language)}
-                    className="h-6 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                    className="h-6 text-xs text-chart-2 hover:text-chart-2/80 hover:bg-chart-2/10"
                   >
                     <Play className="w-3 h-3 mr-1" />
                     Try It
                   </Button>
                 </div>
-                <pre className="bg-slate-950 p-4 overflow-x-auto m-0">
+                <pre className="bg-background p-4 overflow-x-auto m-0">
                   <code className={className}>{children}</code>
                 </pre>
               </div>
             );
           },
           code: ({ children }) => (
-            <code className="bg-slate-800 text-emerald-400 px-1.5 py-0.5 rounded text-sm font-mono">
+            <code className="bg-secondary text-chart-2 px-1.5 py-0.5 rounded text-sm font-mono">
               {children}
             </code>
           ),
@@ -523,9 +522,9 @@ export function CourseView() {
   if (error || !course) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
-        <BookOpen className="w-16 h-16 text-slate-600 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">Course Not Found</h2>
-        <p className="text-slate-400 mb-6">
+        <BookOpen className="w-16 h-16 text-muted-foreground/50 mb-4" />
+        <h2 className="text-2xl font-bold text-foreground mb-2">Course Not Found</h2>
+        <p className="text-muted-foreground mb-6">
           The course you are looking for does not exist or is still generating.
         </p>
         <Button asChild variant="fantasy">
@@ -547,7 +546,7 @@ export function CourseView() {
               exit={{ opacity: 0, y: -50 }}
               className="fixed inset-0 flex items-center justify-center pointer-events-none z-50"
             >
-              <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-8 py-6 rounded-2xl shadow-2xl text-center">
+              <div className="bg-gradient-to-r from-chart-1 to-chart-1/80 text-foreground px-8 py-6 rounded-2xl shadow-2xl text-center">
                 <Trophy className="w-12 h-12 mx-auto mb-2" />
                 <p className="text-3xl font-bold">+{xpEarned} XP</p>
                 <p className="text-yellow-100">Lesson Completed!</p>
@@ -557,19 +556,19 @@ export function CourseView() {
         </AnimatePresence>
 
         {/* Header */}
-        <header className="shrink-0 border-b border-slate-800 bg-slate-950/50 backdrop-blur-sm">
+        <header className="shrink-0 border-b border-border bg-background/50 backdrop-blur-sm">
           <div className="px-6 py-4">
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-slate-500 mb-3">
-              <Link to="/roadmap" className="hover:text-slate-300 transition-colors">
+            <nav className="flex items-center gap-2 text-sm text-muted-foreground/70 mb-3">
+              <Link to="/roadmap" className="hover:text-foreground transition-colors">
                 Roadmap
               </Link>
               <ChevronRight className="w-4 h-4" />
-              <span className="text-slate-300">{course.title}</span>
+              <span className="text-foreground">{course.title}</span>
               {activeLesson && (
                 <>
                   <ChevronRight className="w-4 h-4" />
-                  <span className="text-indigo-400">Lesson {currentIndex + 1}</span>
+                  <span className="text-primary">Lesson {currentIndex + 1}</span>
                 </>
               )}
             </nav>
@@ -577,15 +576,15 @@ export function CourseView() {
             {/* Course Info & Progress */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" asChild className="text-slate-400 hover:text-white">
+                <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
                   <Link to="/roadmap">
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Back
                   </Link>
                 </Button>
                 <div>
-                  <h1 className="text-xl font-bold text-white">{course.title}</h1>
-                  <div className="flex items-center gap-4 text-sm text-slate-400 mt-1">
+                  <h1 className="text-xl font-bold text-foreground">{course.title}</h1>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                     <span className="flex items-center gap-1">
                       <BookOpen className="w-4 h-4" />
                       {completedLessons}/{totalLessons} lessons
@@ -602,16 +601,16 @@ export function CourseView() {
                 {/* Progress Bar */}
                 <div className="w-48">
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-400">Course Progress</span>
-                    <span className="text-indigo-400 font-medium">{progressPercentage}%</span>
+                    <span className="text-muted-foreground">Course Progress</span>
+                    <span className="text-primary font-medium">{progressPercentage}%</span>
                   </div>
-                  <Progress value={progressPercentage} className="h-2 bg-slate-800" />
+                  <Progress value={progressPercentage} className="h-2 bg-secondary" />
                 </div>
 
                 {/* Total XP */}
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-lg border border-slate-800">
-                  <Sparkles className="w-4 h-4 text-yellow-400" />
-                  <span className="text-sm font-medium text-white">{course.total_xp} XP</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
+                  <Sparkles className="w-4 h-4 text-chart-1" />
+                  <span className="text-sm font-medium text-foreground">{course.total_xp} XP</span>
                 </div>
               </div>
             </div>
@@ -621,10 +620,10 @@ export function CourseView() {
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Lesson Sidebar */}
-          <aside className="w-72 shrink-0 border-r border-slate-800 bg-slate-950/30 overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-800">
-              <h3 className="font-semibold text-white flex items-center gap-2">
-                <Target className="w-4 h-4 text-indigo-400" />
+          <aside className="w-72 shrink-0 border-r border-border bg-background/30 overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
                 Course Content
               </h3>
             </div>
@@ -632,7 +631,6 @@ export function CourseView() {
               <nav className="p-3 space-y-1">
                 {sortedLessons.map((lesson, index) => {
                   const isActive = lesson.id === activeLesson?.id;
-                  const isCompleted = index < completedLessons;
 
                   return (
                     <Tooltip key={lesson.id}>
@@ -642,26 +640,26 @@ export function CourseView() {
                           className={cn(
                             "w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all",
                             isActive
-                              ? "bg-indigo-500/20 border border-indigo-500/30"
-                              : "hover:bg-slate-800/50 border border-transparent",
+                              ? "bg-primary/20 border border-primary/30"
+                              : "hover:bg-secondary/50 border border-transparent",
                             isCompleted && !isActive && "opacity-70"
                           )}
                         >
                           <div className="flex flex-col items-center gap-1 shrink-0 mt-0.5">
                             {isCompleted ? (
-                              <CheckCircle className="w-5 h-5 text-emerald-500" />
+                              <CheckCircle className="w-5 h-5 text-chart-2" />
                             ) : isActive ? (
-                              <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center">
-                                <Play className="w-3 h-3 text-white" />
+                              <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                <Play className="w-3 h-3 text-foreground" />
                               </div>
                             ) : (
-                              <Circle className="w-5 h-5 text-slate-600" />
+                              <Circle className="w-5 h-5 text-muted-foreground/50" />
                             )}
                             {index < sortedLessons.length - 1 && (
                               <div
                                 className={cn(
                                   "w-0.5 h-full min-h-[20px]",
-                                  isCompleted ? "bg-emerald-500/30" : "bg-slate-800"
+                                  isCompleted ? "bg-chart-2/80/30" : "bg-secondary"
                                 )}
                               />
                             )}
@@ -670,12 +668,12 @@ export function CourseView() {
                             <p
                               className={cn(
                                 "font-medium text-sm",
-                                isActive ? "text-white" : "text-slate-300"
+                                isActive ? "text-foreground" : "text-foreground"
                               )}
                             >
                               {index + 1}. {lesson.title}
                             </p>
-                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                            <p className="text-xs text-muted-foreground/70 mt-0.5 flex items-center gap-1">
                               <Sparkles className="w-3 h-3" />
                               {lesson.xp_reward} XP
                             </p>
@@ -702,8 +700,8 @@ export function CourseView() {
                     {/* Lesson Header */}
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
-                          <Badge variant="outline" className="text-xs border-slate-700">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground/70 mb-2">
+                          <Badge variant="outline" className="text-xs border-border">
                             Lesson {currentIndex + 1} of {sortedLessons.length}
                           </Badge>
                           <span className="flex items-center gap-1">
@@ -711,15 +709,15 @@ export function CourseView() {
                             {parsedContent.estimatedMinutes} min read
                           </span>
                         </div>
-                        <h2 className="text-3xl font-bold text-white">{activeLesson.title}</h2>
+                        <h2 className="text-3xl font-bold text-foreground">{activeLesson.title}</h2>
                       </div>
-                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                      <Badge className="bg-chart-1/20 text-chart-1 border-chart-1/30">
                         <Sparkles className="w-3 h-3 mr-1" />
                         {activeLesson.xp_reward} XP
                       </Badge>
                     </div>
 
-                    <Separator className="bg-slate-800" />
+                    <Separator className="bg-secondary" />
 
                     {/* Content */}
                     {activeLesson.content_markdown ? (
@@ -729,20 +727,20 @@ export function CourseView() {
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <AlertCircle className="w-12 h-12 text-slate-600 mb-4" />
-                        <p className="text-slate-400">
+                        <AlertCircle className="w-12 h-12 text-muted-foreground/50 mb-4" />
+                        <p className="text-muted-foreground">
                           This lesson is still being generated. Check back soon!
                         </p>
                       </div>
                     )}
 
                     {/* Navigation Footer */}
-                    <div className="flex items-center justify-between pt-8 mt-8 border-t border-slate-800">
+                    <div className="flex items-center justify-between pt-8 mt-8 border-t border-border">
                       <Button
                         variant="outline"
                         onClick={handlePrevious}
                         disabled={!hasPrevious}
-                        className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                        className="border-border text-foreground hover:bg-secondary"
                       >
                         <ChevronLeft className="w-4 h-4 mr-2" />
                         Previous
@@ -751,7 +749,7 @@ export function CourseView() {
                       <Button
                         onClick={handleMarkComplete}
                         disabled={isCompleting}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6"
+                        className="bg-gradient-to-r from-chart-2 to-chart-2/80 hover:from-chart-2/90 hover:to-chart-2/70 text-foreground px-6"
                       >
                         {isCompleting ? (
                           <>
@@ -770,7 +768,7 @@ export function CourseView() {
                         variant="outline"
                         onClick={handleNext}
                         disabled={!hasNext}
-                        className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                        className="border-border text-foreground hover:bg-secondary"
                       >
                         Next
                         <ChevronRight className="w-4 h-4 ml-2" />
@@ -778,7 +776,7 @@ export function CourseView() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-slate-500">
+                  <div className="flex items-center justify-center h-full text-muted-foreground/70">
                     <p>Select a lesson to begin</p>
                   </div>
                 )}
@@ -786,14 +784,14 @@ export function CourseView() {
             </div>
 
             {/* Code Playground */}
-            <div className="w-[45%] min-w-[400px] max-w-[600px] border-l border-slate-800 bg-slate-950/30 p-6">
+            <div className="w-[45%] min-w-[400px] max-w-[600px] border-l border-border bg-background/30 p-6">
               <div className="h-full flex flex-col">
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Code className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Code className="w-5 h-5 text-chart-2" />
                     Code Playground
                   </h3>
-                  <p className="text-sm text-slate-400 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Experiment with the code examples or write your own
                   </p>
                 </div>

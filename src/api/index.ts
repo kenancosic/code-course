@@ -2,7 +2,6 @@ import { CONFIG } from '@/config';
 import type { RoadmapPath } from '@/types/roadmap';
 import type { Course } from '@/types/course';
 import type { UserProfile } from '@/types/progress';
-import type { UpdateProfileData, GenerateCourseRequest } from './types';
 import {
   fetchRoadmaps as fetchRoadmapsMock,
   fetchRoadmap as fetchRoadmapMock,
@@ -28,6 +27,9 @@ import {
 
 export type { UpdateProfileData, GenerateCourseRequest } from './types';
 export { ApiError } from './client';
+
+// Re-export types that are used elsewhere through this index
+export type { RoadmapPath, Course, UserProfile };
 
 export const fetchRoadmaps = CONFIG.USE_MOCK_DATA ? fetchRoadmapsMock : fetchRoadmapsReal;
 export const fetchRoadmap = CONFIG.USE_MOCK_DATA ? fetchRoadmapMock : fetchRoadmapReal;

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UserProfile, UpdateProfileRequest } from '../types/progress';
 
 const fetchProfile = async (): Promise<UserProfile> => {
-  const response = await fetch('/api/profile');
+  const response = await fetch('/api/profile/');
   if (!response.ok) {
     throw new Error('Failed to fetch profile');
   }
@@ -10,7 +10,7 @@ const fetchProfile = async (): Promise<UserProfile> => {
 };
 
 const updateProfile = async (data: UpdateProfileRequest): Promise<UserProfile> => {
-  const response = await fetch('/api/profile', {
+  const response = await fetch('/api/profile/', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

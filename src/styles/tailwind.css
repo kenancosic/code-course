@@ -1,4 +1,15 @@
-@import 'tailwindcss' source(none);
+@import "tailwindcss";
+@import "./theme.css";
+@import "@fontsource/cinzel/400.css";
+@import "@fontsource/cinzel/500.css";
+@import "@fontsource/cinzel/600.css";
+@import "@fontsource/cinzel/700.css";
+@import "@fontsource/lora/400.css";
+@import "@fontsource/lora/500.css";
+@import "@fontsource/lora/600.css";
+@import "@fontsource/lora/700.css";
+
 @source '../**/*.{js,ts,jsx,tsx}';
 
-@import 'tw-animate-css';
+@plugin "tailwindcss-animate";
+@plugin "@tailwindcss/typography";

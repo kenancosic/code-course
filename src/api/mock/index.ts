@@ -1,7 +1,7 @@
 import type { RoadmapPath } from '@/types/roadmap';
 import type { Course } from '@/types/course';
 import type { UserProfile } from '@/types/progress';
-import type { UpdateProfileData, GenerateCourseRequest } from './types';
+import type { UpdateProfileData } from '../types';
 import { mockRoadmaps } from './data/roadmaps';
 import { mockUserProfile } from './data/profile';
 import { mockCourses } from './data/courses';
@@ -30,7 +30,7 @@ export async function fetchCourse(id: string): Promise<Course> {
   return Promise.resolve(course);
 }
 
-export async function generateCourse(_request: GenerateCourseRequest): Promise<Course> {
+export async function generateCourse(): Promise<Course> {
   throw new Error('generateCourse not implemented in mock mode');
 }
 

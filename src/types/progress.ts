@@ -139,14 +139,17 @@ export interface UserProfile {
     id: string;
     title: string;
   } | null;
-  skills: Skill[];
+  skills: {
+    name: string;
+    level: number;
+    xp: number;
+  }[];
   recent_activity: Activity[];
 }
 
 export interface Activity {
   id: string;
   type: 'lesson_completed' | 'course_completed' | 'achievement_unlocked' | 'practice_completed';
-  title: string;
   description: string;
   xp_earned: number;
   timestamp: string;

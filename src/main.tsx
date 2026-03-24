@@ -1,12 +1,13 @@
-
 import { createRoot } from "react-dom/client";
 import App from "./app/App.tsx";
 import { QueryProvider } from "./providers/query-provider";
-import "./styles/index.css";
+import { ThemeProvider } from "./providers/theme-provider";
+import "./styles/tailwind.css";
 
 createRoot(document.getElementById("root")!).render(
   <QueryProvider>
-    <App />
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+      <App />
+    </ThemeProvider>
   </QueryProvider>
 );
-  
