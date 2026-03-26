@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architecture Steward"
+  short_description: "Design and maintain healthy software architecture"
+  default_prompt: "Use $architecture-steward to design, review, or evolve application architecture and keep it maintainable over time."

@@ -18,13 +18,23 @@
 - [ ] Clicking path navigates to detail
 
 #### Roadmap Detail
-- [ ] Roadmap tree renders correctly
-- [ ] Nodes are positioned correctly
-- [ ] Connections render between nodes
-- [ ] Node status colors display (locked/unlocked/completed)
-- [ ] Clicking node shows details
-- [ ] "Generate Course" button works
-- [ ] Responsive layout works
+- [ ] All 4 roadmaps display in the list
+- [ ] Roadmap tree renders with tier rows
+- [ ] Nodes are positioned correctly by tier
+- [ ] Node status colors display (locked/unlocked/completed/in-progress)
+- [ ] Clicking node shows detail panel
+- [ ] "Generate Course" button opens subtopic sheet
+- [ ] Subtopic selection sheet shows checkboxes for subtopics
+- [ ] "Select All" and "Clear" buttons work
+- [ ] Course generation via SSE stream works
+- [ ] Navigation to course page after generation
+
+#### Course Generation
+- [ ] Subtopic selection shows available subtopics
+- [ ] Selecting subtopics and generating creates multi-topic course
+- [ ] Lesson task types display correctly (quiz/coding/project)
+- [ ] AI evaluation returns feedback
+- [ ] Confetti animation plays on correct answer
 
 #### Course View
 - [ ] Lesson content renders markdown
@@ -62,6 +72,13 @@
 - [ ] `GET /api/roadmaps/{id}` returns single roadmap
 - [ ] Invalid ID returns 404
 
+**Topics:**
+- [ ] `GET /api/topics/` returns list
+- [ ] `GET /api/topics/` with `?query=css` returns filtered results
+- [ ] `GET /api/topics/{id}` returns topic with subtopics
+- [ ] `GET /api/topics/{id}` for non-existent ID returns 404
+- [ ] `POST /api/topics/generate-roadmap` creates custom roadmap
+
 **Courses:**
 - [ ] `GET /api/courses` returns list
 - [ ] `GET /api/courses/{id}` returns course with lessons
@@ -86,6 +103,11 @@
 - [ ] `GET /api/profile` returns user data
 - [ ] `PUT /api/profile` updates data
 - [ ] `GET /api/profile/achievements` returns achievements
+
+**Evaluation:**
+- [ ] `POST /api/courses/{id}/lessons/{id}/evaluate` evaluates quiz answer
+- [ ] `POST /api/courses/{id}/lessons/{id}/evaluate` evaluates coding answer
+- [ ] Response includes is_correct, feedback, suggestions, xp_earned
 
 #### Database
 - [ ] Migrations run successfully
@@ -113,6 +135,17 @@ curl http://localhost:8000/api/roadmaps
 curl http://localhost:8000/api/roadmaps/1
 ```
 
+### Topics
+
+# List all topics:
+curl http://localhost:8000/api/topics/
+
+# Search topics:
+curl "http://localhost:8000/api/topics/?query=css"
+
+# Get topic with subtopics:
+curl http://localhost:8000/api/topics/1
+
 ### Courses
 
 **List courses:**
@@ -131,9 +164,7 @@ curl -N -H "Accept: text/event-stream" \
   -X POST http://localhost:8000/api/courses/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "topic": "CSS Basics",
-    "roadmap_path_id": "frontend",
-    "roadmap_node_id": "css-basics"
+    "topic_ids": [1, 2, 3]
   }'
 ```
 
@@ -192,15 +223,19 @@ curl -X POST http://localhost:8000/api/practice/execute \
 
 **Get profile:**
 ```bash
-curl http://localhost:8000/api/profile
+# Get profile
+curl http://localhost:8000/api/profile/
+# Response has: id, display_name, avatar_seed, level, title, total_xp, xp_to_next_level, quests_completed, current_path, skills, achievements, recent_activity
 ```
 
 **Update profile:**
 ```bash
-curl -X PUT http://localhost:8000/api/profile \
+# Update profile
+curl -X PUT http://localhost:8000/api/profile/ \
   -H "Content-Type: application/json" \
   -d '{
-    "display_name": "New Name"
+    "display_name": "New Name",
+    "avatar_seed": "Felix"
   }'
 ```
 
@@ -276,10 +311,10 @@ python -m seed.seed_roadmaps
 ### Sample Test Data
 
 The seed script creates:
-- 4 roadmap paths (Frontend, Backend, DevOps, Database)
-- ~24 nodes per path
-- Sample achievements
-- Default user profile
+- 4 roadmap paths (Frontend Development, Backend Development, DevOps, Database Engineering)
+- 24 + 8 + 6 + 6 = 44 nodes across all paths
+- 4 roadmaps with 4-7 subtopics per node (~250+ subtopics)
+- Default user profile (id=1, display_name="Developer")
 
 ## Debugging Tips
 

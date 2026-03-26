@@ -2,20 +2,28 @@
 
 ## Base URL
 
-- **Development**: `http://localhost:8000/api`
-- **Production**: `/api` (relative to domain)
+| Environment | URL                         |
+| ----------- | --------------------------- |
+| Development | `http://localhost:8000/api` |
+| Production  | `/api` (relative to domain) |
 
 ## Authentication
 
 Currently, the API uses a single implicit user (local-only). Authentication will be added in future versions.
 
+---
+
 ## Endpoints
 
 ### Health Check
 
-#### GET `/health`
+#### `GET /health`
 
 Check if the API is running.
+
+| Field    | Type   | Description                  |
+| -------- | ------ | ---------------------------- |
+| `status` | string | `"healthy"` when operational |
 
 **Response:**
 
@@ -29,92 +37,211 @@ Check if the API is running.
 
 ### Roadmaps
 
-#### GET `/api/roadmaps`
+#### `GET /api/roadmaps/`
 
-List all published roadmap paths.
+List all roadmap paths with their nodes and connections.
 
-**Response:**
+**Response:** `RoadmapPathResponse[]`
+
+| Field         | Type                          | Description                                    |
+| ------------- | ----------------------------- | ---------------------------------------------- |
+| `id`          | integer                       | Roadmap path ID                                |
+| `title`       | string                        | Roadmap title                                  |
+| `description` | string                        | Roadmap description                            |
+| `icon`        | string                        | Icon name (e.g., `"Monitor"`)                  |
+| `colors`      | string                        | Tailwind gradient classes                      |
+| `sort_order`  | integer                       | Display order                                  |
+| `is_locked`   | boolean                       | Whether the path is locked                     |
+| `user_id`     | integer \| null               | Creator user ID (null for built-in)            |
+| `is_custom`   | boolean                       | Whether this is an AI-generated custom roadmap |
+| `nodes`       | `RoadmapNodeResponse[]`       | Nodes in the roadmap                           |
+| `connections` | `RoadmapConnectionResponse[]` | Connections between nodes                      |
 
 ```json
-[
-  {
-    "id": 1,
-    "title": "Path of the Visionary - Frontend",
-    "description": "Master the ancient arts of HTML, CSS, React...",
-    "category": "frontend",
-    "is_published": true,
-    "nodes": [...],
-    "connections": [...]
-  }
-]
+[{
+  "id": 1,
+  "title": "Frontend Development",
+  "description": "Master HTML, CSS, JavaScript, and modern frameworks...",
+  "icon": "Monitor",
+  "colors": "from-orange-500 to-amber-500",
+  "sort_order": 1,
+  "is_locked": false,
+  "user_id": null,
+  "is_custom": false,
+  "nodes": [...],
+  "connections": [...]
+}]
 ```
 
-#### GET `/api/roadmaps/{path_id}`
+#### `GET /api/roadmaps/{path_id}`
 
 Get a single roadmap path with all nodes and connections.
 
 **Parameters:**
 
-- `path_id` (integer) - Roadmap path ID
+| Name      | Type    | Description     |
+| --------- | ------- | --------------- |
+| `path_id` | integer | Roadmap path ID |
 
-**Response:**
+**Response:** `RoadmapPathResponse` (same schema as list item, single object)
+
+---
+
+### Roadmap Nodes
+
+Each node in `RoadmapPathResponse.nodes` follows this schema:
+
+| Field        | Type            | Description                              |
+| ------------ | --------------- | ---------------------------------------- |
+| `id`         | integer         | Node ID                                  |
+| `path_id`    | integer         | Parent roadmap ID                        |
+| `topic_id`   | integer         | Associated topic ID                      |
+| `position_x` | integer         | X coordinate for rendering               |
+| `position_y` | integer         | Y coordinate for rendering               |
+| `tier`       | integer         | Node tier/level in the path              |
+| `status`     | string          | `"locked"`, `"available"`, `"completed"` |
+| `topic`      | `TopicResponse` | Embedded topic details                   |
 
 ```json
 {
   "id": 1,
-  "title": "Path of the Visionary - Frontend",
-  "description": "Master the ancient arts of HTML, CSS, React...",
-  "category": "frontend",
-  "is_published": true,
-  "nodes": [
-    {
-      "id": 1,
-      "path_id": 1,
-      "title": "HTML Glyphs",
-      "description": "The foundational language of the visual realm.",
-      "position_x": 50,
-      "position_y": 20,
-      "node_type": "default",
-      "course_id": null
-    }
-  ],
-  "connections": [
-    {
-      "id": 1,
-      "path_id": 1,
-      "source_node_id": 1,
-      "target_node_id": 2,
-      "connection_type": "default"
-    }
-  ]
+  "path_id": 1,
+  "topic_id": 1,
+  "position_x": 100,
+  "position_y": 100,
+  "tier": 1,
+  "status": "locked",
+  "topic": {
+    "id": 1,
+    "title": "Internet Basics",
+    "description": "How the web works...",
+    "ai_generated": false,
+    "keywords": "internet, http, https"
+  }
 }
 ```
 
-#### GET `/api/topics/{topic_id}`
+---
 
-Get a single topic by ID with its details.
+### Roadmap Connections
+
+Each connection in `RoadmapPathResponse.connections` follows this schema:
+
+| Field             | Type    | Description                         |
+| ----------------- | ------- | ----------------------------------- |
+| `id`              | integer | Connection ID                       |
+| `path_id`         | integer | Parent roadmap ID                   |
+| `from_node_id`    | integer | Source node ID                      |
+| `to_node_id`      | integer | Target node ID                      |
+| `connection_type` | string  | Connection type (e.g., `"default"`) |
+
+```json
+{
+  "id": 1,
+  "path_id": 1,
+  "from_node_id": 1,
+  "to_node_id": 2,
+  "connection_type": "default"
+}
+```
+
+---
+
+### Topics
+
+#### `GET /api/topics/`
+
+List all topics. Optional search with `?query=` parameter.
+
+**Query Parameters:**
+
+| Name    | Type   | Description                           |
+| ------- | ------ | ------------------------------------- |
+| `query` | string | Optional search term to filter topics |
+
+**Response:** `TopicResponse[]`
+
+| Field          | Type           | Description                    |
+| -------------- | -------------- | ------------------------------ |
+| `id`           | integer        | Topic ID                       |
+| `title`        | string         | Topic title                    |
+| `description`  | string         | Topic description              |
+| `ai_generated` | boolean        | Whether topic was AI-generated |
+| `keywords`     | string \| null | Comma-separated keywords       |
+
+```json
+[
+  {
+    "id": 1,
+    "title": "CSS Basics",
+    "description": "Fundamentals of CSS styling...",
+    "ai_generated": false,
+    "keywords": "css, styling, selectors"
+  }
+]
+```
+
+#### `GET /api/topics/{topic_id}`
+
+Get detailed information about a topic, including subtopics and connections.
 
 **Parameters:**
 
-- `topic_id` (integer) - Topic ID
+| Name       | Type    | Description |
+| ---------- | ------- | ----------- |
+| `topic_id` | integer | Topic ID    |
 
-**Response:**
+**Response:** `TopicDetailResponse`
+
+| Field                  | Type                | Description                    |
+| ---------------------- | ------------------- | ------------------------------ |
+| `id`                   | integer             | Topic ID                       |
+| `title`                | string              | Topic title                    |
+| `description`          | string              | Topic description              |
+| `ai_generated`         | boolean             | Whether topic was AI-generated |
+| `keywords`             | string \| null      | Comma-separated keywords       |
+| `subtopics`            | `TopicResponse[]`   | Related subtopics              |
+| `outgoing_connections` | `TopicConnection[]` | Connections from this topic    |
+| `incoming_connections` | `TopicConnection[]` | Connections to this topic      |
 
 ```json
 {
   "id": 1,
-  "title": "Python Basics",
-  "description": "Introduction to Python programming",
+  "title": "CSS Basics",
+  "description": "Fundamentals of CSS styling...",
   "ai_generated": false,
-  "keywords": "python, programming, basics"
+  "keywords": "css, selectors",
+  "subtopics": [
+    {
+      "id": 5,
+      "title": "CSS Selectors",
+      "description": "...",
+      "ai_generated": false,
+      "keywords": null
+    }
+  ],
+  "outgoing_connections": [
+    {
+      "id": 1,
+      "from_topic_id": 1,
+      "to_topic_id": 5,
+      "relationship_type": "subtopic",
+      "ai_confidence": null
+    }
+  ],
+  "incoming_connections": []
 }
 ```
 
-#### POST `/api/topics/generate-roadmap`
+#### `POST /api/topics/generate-roadmap`
 
 Generate a custom roadmap path for a topic with AI-generated subtopics.
 
 **Request:**
+
+| Field   | Type   | Description                        |
+| ------- | ------ | ---------------------------------- |
+| `topic` | string | Topic name to generate roadmap for |
 
 ```json
 {
@@ -122,169 +249,166 @@ Generate a custom roadmap path for a topic with AI-generated subtopics.
 }
 ```
 
-**Response:**
-
-```json
-{
-  "id": 5,
-  "title": "Machine Learning",
-  "description": "AI-generated roadmap for Machine Learning",
-  "icon": "Star",
-  "colors": "from-indigo-500 to-purple-500",
-  "is_custom": true,
-  "nodes": [
-    {
-      "id": 12,
-      "topic_id": 1,
-      "tier": 1,
-      "position_x": 0,
-      "position_y": 0,
-      "status": "unlocked"
-    }
-  ],
-  "connections": [
-    {
-      "id": 8,
-      "from_node_id": 12,
-      "to_node_id": 13,
-      "connection_type": "default"
-    }
-  ]
-}
-```
+**Response:** `RoadmapPathResponse` (same schema as roadmaps endpoint)
 
 ---
 
 ### Courses
 
-#### GET `/api/courses`
+#### `GET /api/courses/`
 
-List all generated courses.
+List all courses.
 
-**Response:**
+**Response:** `CourseResponse[]`
+
+| Field           | Type               | Description                          |
+| --------------- | ------------------ | ------------------------------------ |
+| `id`            | integer            | Course ID                            |
+| `title`         | string             | Course title                         |
+| `description`   | string             | Course description                   |
+| `topic_id`      | integer            | Associated topic ID                  |
+| `status`        | string             | `"generating"`, `"ready"`, `"error"` |
+| `total_lessons` | integer            | Number of lessons in course          |
+| `total_xp`      | integer            | Total XP available in course         |
+| `created_at`    | string (ISO 8601)  | Creation timestamp                   |
+| `lessons`       | `LessonResponse[]` | Lessons (empty array in list view)   |
 
 ```json
 [
   {
     "id": 1,
-    "title": "The Arcane Art of CSS",
-    "description": "Master CSS styling techniques",
-    "category": "frontend",
-    "difficulty": "beginner",
-    "is_published": true,
-    "lessons": [...]
+    "title": "CSS Basics | CSS Layouts",
+    "description": "...",
+    "topic_id": 1,
+    "status": "ready",
+    "total_lessons": 5,
+    "total_xp": 500,
+    "created_at": "2026-03-26T10:00:00Z",
+    "lessons": []
   }
 ]
 ```
 
-#### GET `/api/courses/{course_id}`
+#### `GET /api/courses/{course_id}`
 
-Get a course with lesson list.
-
-**Parameters:**
-
-- `course_id` (integer) - Course ID
-
-**Response:**
-
-```json
-{
-  "id": 1,
-  "title": "The Arcane Art of CSS",
-  "description": "Master CSS styling techniques",
-  "category": "frontend",
-  "difficulty": "beginner",
-  "is_published": true,
-  "lessons": [
-    {
-      "id": 1,
-      "course_id": 1,
-      "title": "CSS Selectors",
-      "content": "...",
-      "order_index": 0,
-      "duration_minutes": 15
-    }
-  ]
-}
-```
-
-#### POST `/api/courses/generate`
-
-Trigger course generation from a topic. Returns SSE stream.
-
-**Request:**
-
-```json
-{
-  "topic_ids": [1, 2, 3],
-  "model": "anthropic/claude-sonnet-4-20250514"
-}
-```
-
-- `topic_ids` (array of integers, required) - One or more topic IDs to include in the course
-- `model` (string, optional) - LLM model to use for generation
-
-**SSE Events:**
-
-```
-event: status
-data: {"stage": "outline", "message": "Generating course outline..."}
-
-event: chunk
-data: {"stage": "lesson", "lesson_index": 0, "content_delta": "# The Arcane..."}
-
-event: complete
-data: {"course_id": 1, "total_lessons": 5}
-```
-
-#### DELETE `/api/courses/{course_id}`
-
-Delete a generated course.
+Get a single course with full lesson details.
 
 **Parameters:**
 
-- `course_id` (integer) - Course ID
+| Name        | Type    | Description |
+| ----------- | ------- | ----------- |
+| `course_id` | integer | Course ID   |
 
-**Response:** `204 No Content`
+**Response:** `CourseResponse` with populated `lessons` array.
 
----
+#### `GET /api/courses/{course_id}/lessons/{lesson_id}`
 
-### Lessons
-
-#### GET `/api/courses/{course_id}/lessons/{lesson_id}`
-
-Get full lesson content.
+Get a single lesson from a course.
 
 **Parameters:**
 
-- `course_id` (integer) - Course ID
-- `lesson_id` (integer) - Lesson ID
+| Name        | Type    | Description |
+| ----------- | ------- | ----------- |
+| `course_id` | integer | Course ID   |
+| `lesson_id` | integer | Lesson ID   |
 
-**Response:**
+**Response:** `LessonResponse`
+
+| Field              | Type    | Description                       |
+| ------------------ | ------- | --------------------------------- |
+| `id`               | integer | Lesson ID                         |
+| `course_id`        | integer | Parent course ID                  |
+| `title`            | string  | Lesson title                      |
+| `content_markdown` | string  | Lesson content in Markdown        |
+| `task_type`        | string  | `"coding"`, `"quiz"`, `"reading"` |
+| `task_content`     | string  | Task instructions                 |
+| `sort_order`       | integer | Lesson order within course        |
+| `xp_reward`        | integer | XP earned on completion           |
 
 ```json
 {
   "id": 1,
   "course_id": 1,
   "title": "CSS Selectors",
-  "content_markdown": "# CSS Selectors\n\nIn the realm of styling...",
+  "content_markdown": "# CSS Selectors\n\n...",
   "task_type": "coding",
-  "task_content": "Write a CSS selector that targets all paragraphs with class 'highlight' and makes them yellow.",
+  "task_content": "Write a CSS selector...",
   "sort_order": 0,
-  "xp_reward": 10
+  "xp_reward": 100
 }
 ```
 
-#### POST `/api/courses/{course_id}/lessons/{lesson_id}/evaluate`
+#### `POST /api/courses/generate`
+
+Generate a new course from topic IDs. Returns Server-Sent Events (SSE) stream.
+
+**Request:**
+
+| Field       | Type      | Description                                       |
+| ----------- | --------- | ------------------------------------------------- |
+| `topic_ids` | integer[] | One or more topic IDs to include                  |
+| `model`     | string    | LLM model (e.g., `"anthropic/claude-sonnet-4.6"`) |
+
+```json
+{
+  "topic_ids": [1, 2, 3],
+  "model": "anthropic/claude-sonnet-4.6"
+}
+```
+
+**SSE Events:**
+
+| Event      | Data                                                             | Description         |
+| ---------- | ---------------------------------------------------------------- | ------------------- |
+| `status`   | `{"stage": "outline", "message": "...", "lessons": [...]}`       | Generation progress |
+| `chunk`    | `{"stage": "lesson", "lesson_index": 0, "content_delta": "..."}` | Content streaming   |
+| `complete` | `{"course_id": 1, "total_lessons": 5}`                           | Generation finished |
+
+**Example SSE Stream:**
+
+```
+event: status
+data: {"stage": "outline", "message": "Generating course outline...", "lessons": ["Lesson 1", "Lesson 2"]}
+
+event: chunk
+data: {"stage": "lesson", "lesson_index": 0, "content_delta": "# CSS Selectors\n\n..."}
+
+event: complete
+data: {"course_id": 1, "total_lessons": 5}
+```
+
+#### `DELETE /api/courses/{course_id}`
+
+Delete a course.
+
+**Parameters:**
+
+| Name        | Type    | Description |
+| ----------- | ------- | ----------- |
+| `course_id` | integer | Course ID   |
+
+**Response:** `204 No Content`
+
+---
+
+### Lesson Evaluation
+
+#### `POST /api/courses/{course_id}/lessons/{lesson_id}/evaluate`
 
 Evaluate a user's answer to a lesson task using AI.
 
 **Parameters:**
 
-- `course_id` (integer) - Course ID
-- `lesson_id` (integer) - Lesson ID
+| Name        | Type    | Description |
+| ----------- | ------- | ----------- |
+| `course_id` | integer | Course ID   |
+| `lesson_id` | integer | Lesson ID   |
 
 **Request:**
+
+| Field    | Type   | Description             |
+| -------- | ------ | ----------------------- |
+| `answer` | string | User's submitted answer |
 
 ```json
 {
@@ -294,10 +418,19 @@ Evaluate a user's answer to a lesson task using AI.
 
 **Response:**
 
+| Field         | Type    | Description                     |
+| ------------- | ------- | ------------------------------- |
+| `is_correct`  | boolean | Whether the answer is correct   |
+| `feedback`    | string  | AI-generated feedback           |
+| `suggestions` | string  | Additional learning suggestions |
+| `xp_earned`   | integer | XP awarded for this answer      |
+
 ```json
 {
   "is_correct": true,
-  "feedback": "Correct! You've successfully targeted paragraphs with the 'highlight' class. Note that `color: yellow` changes text color; for background you'd use `background-color: yellow`."
+  "feedback": "Correct! You've successfully...",
+  "suggestions": "Consider also learning about...",
+  "xp_earned": 100
 }
 ```
 
@@ -305,11 +438,17 @@ Evaluate a user's answer to a lesson task using AI.
 
 ### Progress
 
-#### POST `/api/progress/complete-lesson`
+#### `POST /api/progress/complete-lesson`
 
-Mark lesson complete, award XP.
+Mark a lesson as completed and award XP.
 
 **Request:**
+
+| Field                | Type    | Description          |
+| -------------------- | ------- | -------------------- |
+| `lesson_id`          | integer | Lesson ID            |
+| `course_id`          | integer | Course ID            |
+| `time_spent_seconds` | integer | Time spent on lesson |
 
 ```json
 {
@@ -320,6 +459,16 @@ Mark lesson complete, award XP.
 ```
 
 **Response:**
+
+| Field              | Type    | Description                          |
+| ------------------ | ------- | ------------------------------------ |
+| `xp_earned`        | integer | XP earned for this lesson            |
+| `total_xp`         | integer | User's total XP                      |
+| `level_before`     | integer | Level before completion              |
+| `level_after`      | integer | Level after completion               |
+| `xp_to_next_level` | integer | XP needed for next level             |
+| `new_achievements` | array   | Newly unlocked achievements          |
+| `node_completed`   | boolean | Whether a roadmap node was completed |
 
 ```json
 {
@@ -333,11 +482,19 @@ Mark lesson complete, award XP.
 }
 ```
 
-#### GET `/api/progress/summary`
+#### `GET /api/progress/summary`
 
 Get overall progress summary.
 
 **Response:**
+
+| Field                     | Type    | Description             |
+| ------------------------- | ------- | ----------------------- |
+| `total_lessons_completed` | integer | Total lessons completed |
+| `total_courses_completed` | integer | Total courses completed |
+| `total_xp`                | integer | Total XP earned         |
+| `current_level`           | integer | Current level           |
+| `streak_days`             | integer | Current streak in days  |
 
 ```json
 {
@@ -349,11 +506,24 @@ Get overall progress summary.
 }
 ```
 
-#### GET `/api/progress/roadmap/{path_id}`
+#### `GET /api/progress/roadmap/{path_id}`
 
 Get progress for a specific roadmap.
 
+**Parameters:**
+
+| Name      | Type    | Description     |
+| --------- | ------- | --------------- |
+| `path_id` | integer | Roadmap path ID |
+
 **Response:**
+
+| Field                   | Type    | Description               |
+| ----------------------- | ------- | ------------------------- |
+| `path_id`               | integer | Roadmap path ID           |
+| `completed_nodes`       | integer | Number of completed nodes |
+| `total_nodes`           | integer | Total nodes in roadmap    |
+| `completion_percentage` | float   | Percentage complete       |
 
 ```json
 {
@@ -364,15 +534,33 @@ Get progress for a specific roadmap.
 }
 ```
 
+#### `GET /api/progress/course/{course_id}`
+
+Get progress for a specific course.
+
+**Parameters:**
+
+| Name        | Type    | Description |
+| ----------- | ------- | ----------- |
+| `course_id` | integer | Course ID   |
+
+**Response:** Array of lesson completion status.
+
 ---
 
 ### Practice
 
-#### POST `/api/practice/execute`
+#### `POST /api/practice/execute`
 
-Execute code in sandbox.
+Execute code in a sandboxed environment.
 
 **Request:**
+
+| Field        | Type   | Description                     |
+| ------------ | ------ | ------------------------------- |
+| `code`       | string | Code to execute                 |
+| `language`   | string | `"javascript"` or `"python"`    |
+| `test_cases` | array  | Optional test cases to validate |
 
 ```json
 {
@@ -384,21 +572,36 @@ Execute code in sandbox.
 
 **Response:**
 
+| Field          | Type    | Description                 |
+| -------------- | ------- | --------------------------- |
+| `success`      | boolean | Whether execution succeeded |
+| `stdout`       | string  | Standard output             |
+| `stderr`       | string  | Standard error              |
+| `exit_code`    | integer | Process exit code           |
+| `test_results` | array   | Test case results           |
+
 ```json
 {
   "success": true,
   "stdout": "5\n",
   "stderr": "",
   "exit_code": 0,
-  "test_results": [{ "passed": true, "input": "2, 3", "expected": "5", "actual": "5" }]
+  "test_results": [...]
 }
 ```
 
-#### POST `/api/practice/evaluate`
+#### `POST /api/practice/evaluate`
 
-LLM-evaluate code solution.
+Evaluate code solution quality using AI.
 
 **Request:**
+
+| Field                   | Type   | Description                  |
+| ----------------------- | ------ | ---------------------------- |
+| `code`                  | string | Solution code                |
+| `language`              | string | Programming language         |
+| `challenge_description` | string | Original problem description |
+| `test_results`          | array  | Results from test execution  |
 
 ```json
 {
@@ -411,61 +614,124 @@ LLM-evaluate code solution.
 
 **Response:**
 
+| Field                 | Type     | Description                    |
+| --------------------- | -------- | ------------------------------ |
+| `score`               | integer  | Score from 0-100               |
+| `feedback`            | string   | AI-generated feedback          |
+| `hints`               | string[] | Improvement suggestions        |
+| `complexity_analysis` | string   | Time/space complexity analysis |
+
 ```json
 {
   "score": 85,
-  "feedback": "Good solution! Consider using memoization...",
-  "hints": ["Try caching previous results"],
-  "complexity_analysis": "Time: O(2^n), Space: O(n)"
+  "feedback": "Good solution!...",
+  "hints": ["Try caching..."],
+  "complexity_analysis": "Time: O(n)"
 }
 ```
+
+#### `GET /api/practice/sessions`
+
+List practice sessions (filterable by query params).
+
+#### `POST /api/practice/sessions`
+
+Create a new practice session.
+
+#### `GET /api/practice/sessions/{session_id}`
+
+Get a specific practice session.
+
+#### `PUT /api/practice/sessions/{session_id}`
+
+Update a practice session.
+
+#### `DELETE /api/practice/sessions/{session_id}`
+
+Delete a practice session.
 
 ---
 
 ### Profile
 
-#### GET `/api/profile`
+#### `GET /api/profile/`
 
-Get full user profile.
+Get the current user's profile.
 
 **Response:**
+
+| Field              | Type            | Description                     |
+| ------------------ | --------------- | ------------------------------- |
+| `id`               | integer         | User ID                         |
+| `display_name`     | string          | User's display name             |
+| `avatar_seed`      | string          | Seed for avatar generation      |
+| `level`            | integer         | Current level                   |
+| `title`            | string          | User's title/rank               |
+| `total_xp`         | integer         | Total XP earned                 |
+| `xp_to_next_level` | integer         | XP needed for next level        |
+| `quests_completed` | integer         | Number of quests completed      |
+| `current_path`     | integer \| null | Currently selected roadmap path |
+| `skills`           | array           | Skill levels per roadmap        |
+| `achievements`     | array           | User's achievements             |
+| `recent_activity`  | array           | Recent activity feed            |
 
 ```json
 {
   "id": 1,
-  "username": "adventurer",
-  "email": "adventurer@example.com",
   "display_name": "Sir Codealot",
-  "avatar_url": null,
-  "created_at": "2026-01-15T10:30:00Z",
+  "avatar_seed": "Felix",
   "level": 12,
   "title": "Frontend Mage",
   "total_xp": 14250,
   "xp_to_next_level": 1250,
-  "quests_completed": 42
+  "quests_completed": 42,
+  "current_path": null,
+  "skills": [...],
+  "achievements": [...],
+  "recent_activity": [...]
 }
 ```
 
-#### PUT `/api/profile`
+#### `PUT /api/profile/`
 
-Update profile.
+Update the user's profile.
 
 **Request:**
+
+| Field             | Type    | Description              |
+| ----------------- | ------- | ------------------------ |
+| `display_name`    | string  | New display name         |
+| `avatar_seed`     | string  | New avatar seed          |
+| `current_path_id` | integer | Selected roadmap path ID |
 
 ```json
 {
   "display_name": "Lady Coder",
-  "avatar_url": "https://..."
+  "avatar_seed": "Luna",
+  "current_path_id": 1
 }
 ```
 
 **Response:** Updated profile object
 
-#### GET `/api/profile/achievements`
+#### `GET /api/profile/achievements`
 
 List all achievements with unlock status.
 
-**Response:**
+**Response:** `AchievementResponse[]`
+
+| Field           | Type                      | Description                |
+| --------------- | ------------------------- | -------------------------- |
+| `id`            | integer                   | Achievement ID             |
+| `title`         | string                    | Achievement title          |
+| `description`   | string                    | Achievement description    |
+| `icon`          | string                    | Icon name                  |
+| `category`      | string                    | Achievement category       |
+| `trigger_type`  | string                    | How it's triggered         |
+| `trigger_value` | integer                   | Threshold value            |
+| `xp_bonus`      | integer                   | XP awarded on unlock       |
+| `earned`        | boolean                   | Whether user has earned it |
+| `unlocked_at`   | string (ISO 8601) \| null | Unlock timestamp           |
 
 ```json
 [
@@ -473,60 +739,40 @@ List all achievements with unlock status.
     "id": 1,
     "title": "First Blood",
     "description": "Complete your first lesson",
-    "icon_url": null,
-    "requirement": "Complete 1 lesson",
-    "earned_at": "2026-01-15T10:30:00Z"
+    "icon": "Trophy",
+    "category": "combat",
+    "trigger_type": "lesson_count",
+    "trigger_value": 1,
+    "xp_bonus": 50,
+    "earned": true,
+    "unlocked_at": "2026-03-26T10:00:00Z"
   }
 ]
 ```
 
----
+#### `GET /api/profile/skills`
 
-### PDF Processing
+Get skill levels for each roadmap.
 
-#### POST `/api/pdf/upload`
+#### `GET /api/profile/activity`
 
-Upload PDF file.
-
-**Request:** Multipart form data
-
-- `file` - PDF file (max 50MB)
-
-**Response:**
-
-```json
-{
-  "id": "uuid-here",
-  "filename": "course-material.pdf",
-  "status": "uploaded",
-  "file_size_bytes": 1048576
-}
-```
-
-#### POST `/api/pdf/{pdf_id}/process`
-
-Process uploaded PDF (SSE stream).
-
-**Parameters:**
-
-- `pdf_id` (string) - PDF ID
-
-**SSE Events:**
-
-```
-event: status
-data: {"stage": "extraction", "message": "Extracting text..."}
-
-event: status
-data: {"stage": "chunking", "message": "Identifying sections..."}
-
-event: complete
-data: {"course_id": 1, "title": "Course from PDF"}
-```
+Get recent activity feed.
 
 ---
 
 ## Error Handling
+
+### HTTP Status Codes
+
+| Code | Meaning          | Description                   |
+| ---- | ---------------- | ----------------------------- |
+| 200  | OK               | Successful request            |
+| 201  | Created          | Resource created successfully |
+| 204  | No Content       | Successful deletion           |
+| 400  | Bad Request      | Invalid request data          |
+| 404  | Not Found        | Resource not found            |
+| 422  | Validation Error | Input validation failed       |
+| 500  | Server Error     | Internal server error         |
 
 ### Error Response Format
 
@@ -537,28 +783,15 @@ data: {"course_id": 1, "title": "Course from PDF"}
 }
 ```
 
-### HTTP Status Codes
-
-| Code | Meaning          | Common Causes              |
-| ---- | ---------------- | -------------------------- |
-| 200  | OK               | Successful GET/PUT         |
-| 201  | Created          | Successful POST            |
-| 204  | No Content       | Successful DELETE          |
-| 400  | Bad Request      | Invalid input data         |
-| 404  | Not Found        | Resource doesn't exist     |
-| 422  | Validation Error | Pydantic validation failed |
-| 500  | Server Error     | Internal server error      |
-
 ### Common Error Codes
 
-| Code                   | Description                      |
-| ---------------------- | -------------------------------- |
-| `RESOURCE_NOT_FOUND`   | Requested resource doesn't exist |
-| `VALIDATION_ERROR`     | Input validation failed          |
-| `LLM_ERROR`            | LLM API error                    |
-| `EXECUTION_TIMEOUT`    | Code execution timed out         |
-| `EXECUTION_ERROR`      | Code execution failed            |
-| `PDF_PROCESSING_ERROR` | PDF processing failed            |
+| Code                 | Description                      |
+| -------------------- | -------------------------------- |
+| `RESOURCE_NOT_FOUND` | Requested resource doesn't exist |
+| `VALIDATION_ERROR`   | Input validation failed          |
+| `LLM_ERROR`          | LLM API error                    |
+| `EXECUTION_TIMEOUT`  | Code execution timed out         |
+| `EXECUTION_ERROR`    | Code execution failed            |
 
 ### Example Error Responses
 
@@ -578,20 +811,11 @@ data: {"course_id": 1, "title": "Course from PDF"}
   "error": "VALIDATION_ERROR",
   "detail": [
     {
-      "loc": ["body", "title"],
+      "loc": ["body", "topic_ids"],
       "msg": "field required",
       "type": "value_error.missing"
     }
   ]
-}
-```
-
-**500 Server Error:**
-
-```json
-{
-  "error": "INTERNAL_ERROR",
-  "detail": "Internal server error"
 }
 ```
 
@@ -601,8 +825,12 @@ data: {"course_id": 1, "title": "Course from PDF"}
 
 Currently no rate limiting is implemented. This will be added in future versions.
 
+---
+
 ## Content Types
 
-- **JSON API**: `application/json`
-- **SSE Stream**: `text/event-stream`
-- **File Upload**: `multipart/form-data`
+| Content Type          | Usage                                       |
+| --------------------- | ------------------------------------------- |
+| `application/json`    | Standard API requests/responses             |
+| `text/event-stream`   | SSE streaming endpoints (course generation) |
+| `multipart/form-data` | File uploads                                |

@@ -1,4 +1,5 @@
-"""Seed script to populate database with roadmap data."""
+"""Seed script to populate database with roadmap data from JSON files."""
+import json
 import os
 import sys
 
@@ -12,56 +13,124 @@ from server.models.roadmap import RoadmapPath, RoadmapNode, RoadmapConnection
 from server.models.topic import Topic, TopicConnection
 from server.models.progress import UserProfile
 
-def create_topic_with_subtopics(db, main_title, subtopics):
-    # Check if main topic exists
-    main_topic = db.query(Topic).filter(Topic.title == main_title).first()
-    if not main_topic:
-        main_topic = Topic(title=main_title, description=f"Learn {main_title}")
-        db.add(main_topic)
-        db.flush()
+# ── Data directory ──────────────────────────────────────────────────────────
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
-    for sub_title in subtopics:
-        sub_topic = db.query(Topic).filter(Topic.title == sub_title).first()
-        if not sub_topic:
-            sub_topic = Topic(title=sub_title, description=f"Subtopic: {sub_title}")
-            db.add(sub_topic)
-            db.flush()
-        
-        # Check connection
+JSON_FILES = ["frontend.json", "backend.json", "devops.json", "database.json"]
+
+# ── Subtopic definitions per node title (all 4 roadmaps) ───────────────────
+SUBTOPICS = {
+    # Frontend Development
+    "Internet Basics": ["How the Internet Works", "HTTP/HTTPS", "DNS and Domain Names", "Web Browsers", "Hosting and Deployment"],
+    "HTML Fundamentals": ["HTML Document Structure", "Semantic HTML", "Forms and Validation", "Accessibility (a11y)", "SEO Basics"],
+    "CSS Basics": ["CSS Selectors", "CSS Specificity", "CSS Box Model", "CSS Display", "CSS Positioning", "Colors and Typography"],
+    "CSS Layouts": ["CSS Flexbox", "CSS Grid", "Responsive Design", "Media Queries", "CSS Variables", "CSS Animations", "CSS Transforms"],
+    "JavaScript Basics": ["Variables and Data Types", "Functions and Scope", "Control Flow", "Arrays and Objects", "Error Handling"],
+    "DOM Manipulation": ["Selecting Elements", "Event Handling", "Creating and Removing Elements", "DOM Traversal", "Event Delegation"],
+    "Async JavaScript": ["Callbacks", "Promises", "Async/Await", "Fetch API", "Error Handling in Async Code"],
+    "ES6+ Features": ["Arrow Functions", "Destructuring", "Template Literals", "Modules (Import/Export)", "Spread and Rest Operators", "Classes"],
+    "Git & GitHub": ["Git Basics", "Branching and Merging", "Pull Requests", "Conflict Resolution", "Git Workflows"],
+    "Package Managers": ["npm Basics", "package.json", "Semantic Versioning", "npm Scripts", "Dependency Management"],
+    "Build Tools": ["Vite", "Webpack Basics", "Babel and Transpiling", "Code Splitting", "Environment Variables"],
+    "React Basics": ["Components and JSX", "Props and State", "Conditional Rendering", "Lists and Keys", "Event Handling in React"],
+    "React Hooks": ["useState", "useEffect", "useContext", "useRef", "useMemo and useCallback", "Custom Hooks"],
+    "React Router": ["Route Configuration", "Navigation and Links", "URL Parameters", "Nested Routes", "Protected Routes"],
+    "State Management": ["Context API", "Redux Toolkit", "Zustand", "State Patterns", "Server State vs Client State"],
+    "Styled Components": ["CSS-in-JS Basics", "Theming", "Dynamic Styles", "Global Styles"],
+    "Tailwind CSS": ["Utility Classes", "Responsive Design", "Customization", "Component Patterns"],
+    "TypeScript": ["Basic Types", "Interfaces and Types", "Generics", "Type Guards", "Utility Types"],
+    "Testing Basics": ["Unit Testing with Jest", "React Testing Library", "Integration Tests", "E2E with Cypress", "Test Patterns"],
+    "Next.js": ["Pages and Routing", "SSR vs SSG", "API Routes", "Data Fetching", "Middleware"],
+    "Performance": ["Lazy Loading", "Code Splitting", "Core Web Vitals", "Image Optimization", "Caching Strategies"],
+    "Authentication": ["JWT Basics", "OAuth 2.0", "Session Management", "Protected Routes", "Security Best Practices"],
+    "PWA": ["Service Workers", "Web App Manifest", "Offline Support", "Push Notifications", "Cache Strategies"],
+    "Deployment": ["Vercel", "Netlify", "CI/CD Pipelines", "Environment Config", "Monitoring"],
+    # Backend Development
+    "Internet & Networking": ["TCP/IP Model", "HTTP Methods", "Status Codes", "REST Principles", "WebSockets"],
+    "OS Basics": ["Process Management", "Threads and Concurrency", "Memory Management", "File Systems", "Shell Scripting"],
+    "Programming Language": ["Python Fundamentals", "Node.js Fundamentals", "Java Fundamentals", "Go Fundamentals", "Language Selection Guide"],
+    "Version Control": ["Git Basics", "Branching Strategies", "Code Review", "Git Hooks", "Monorepo Management"],
+    "Relational Databases": ["SQL Fundamentals", "Database Design", "Normalization", "Joins and Subqueries", "Indexing"],
+    "NoSQL Databases": ["MongoDB Basics", "Redis Basics", "Document vs Key-Value", "When to Use NoSQL", "Data Modeling"],
+    "APIs & REST": ["RESTful Design", "Request/Response Cycle", "Authentication", "Rate Limiting", "API Versioning", "OpenAPI/Swagger"],
+    # NOTE: "Authentication" is already defined in Frontend, same subtopics key is reused
+    # DevOps
+    "Linux Fundamentals": ["Command Line Basics", "File Permissions", "Shell Scripting", "Package Management", "System Monitoring"],
+    # NOTE: "Version Control" already defined above (Backend), same key reused
+    "Containers": ["Docker Basics", "Dockerfile", "Docker Compose", "Image Optimization", "Container Networking"],
+    "CI/CD": ["GitHub Actions", "Pipeline Design", "Automated Testing", "Deployment Strategies", "Secrets Management"],
+    "Cloud Platforms": ["AWS Basics", "Azure Basics", "GCP Basics", "Infrastructure as Code", "Cost Management"],
+    "Kubernetes": ["Pods and Deployments", "Services and Networking", "ConfigMaps and Secrets", "Scaling", "Helm Charts"],
+    # Database Engineering
+    "SQL Fundamentals": ["SELECT Queries", "Joins", "Aggregations", "Subqueries", "Data Manipulation"],
+    "Database Design": ["ER Diagrams", "Normalization Forms", "Relationships", "Schema Patterns", "Denormalization"],
+    "Advanced SQL": ["CTEs", "Window Functions", "Stored Procedures", "Triggers", "Views"],
+    "Indexing & Optimization": ["Index Types", "Query Plans", "Query Optimization", "Profiling Tools", "Partitioning"],
+    "NoSQL Systems": ["MongoDB Queries", "Redis Data Structures", "Cassandra Basics", "Graph Databases", "Choosing NoSQL"],
+    "Transactions & ACID": ["Transaction Basics", "Isolation Levels", "Locking Mechanisms", "Distributed Transactions", "CAP Theorem"],
+}
+
+
+# ── Helper functions ────────────────────────────────────────────────────────
+
+def get_or_create_topic(db, title, description=None, keywords=None):
+    """Return existing topic or create a new one."""
+    topic = db.query(Topic).filter(Topic.title == title).first()
+    if not topic:
+        topic = Topic(
+            title=title,
+            description=description or f"Learn {title}",
+            ai_generated=False,
+            keywords=keywords,
+        )
+        db.add(topic)
+        db.flush()
+    return topic
+
+
+def create_subtopic_connections(db, parent_topic, subtopic_titles):
+    """Create subtopic Topic records and TopicConnection records."""
+    for sub_title in subtopic_titles:
+        sub_topic = get_or_create_topic(db, sub_title, description=f"Subtopic: {sub_title}")
         conn = db.query(TopicConnection).filter(
-            TopicConnection.from_topic_id == main_topic.id,
+            TopicConnection.from_topic_id == parent_topic.id,
             TopicConnection.to_topic_id == sub_topic.id,
-            TopicConnection.relationship_type == "subtopic"
+            TopicConnection.relationship_type == "subtopic",
         ).first()
         if not conn:
-            conn = TopicConnection(
-                from_topic_id=main_topic.id,
+            db.add(TopicConnection(
+                from_topic_id=parent_topic.id,
                 to_topic_id=sub_topic.id,
-                relationship_type="subtopic"
-            )
-            db.add(conn)
-    return main_topic
+                relationship_type="subtopic",
+            ))
 
-def get_or_create_path(db, title, description, icon, colors, sort_order):
-    path = db.query(RoadmapPath).filter(RoadmapPath.title == title, RoadmapPath.is_custom == False).first()
+
+def get_or_create_path(db, path_data):
+    """Return existing RoadmapPath or create from JSON path data."""
+    path = db.query(RoadmapPath).filter(
+        RoadmapPath.title == path_data["title"],
+        RoadmapPath.is_custom == False,  # noqa: E712
+    ).first()
     if not path:
         path = RoadmapPath(
-            title=title,
-            description=description,
-            icon=icon,
-            colors=colors,
-            sort_order=sort_order,
-            is_locked=False,
-            is_custom=False
+            title=path_data["title"],
+            description=path_data["description"],
+            icon=path_data["icon"],
+            colors=path_data["colors"],
+            sort_order=path_data["sort_order"],
+            is_locked=path_data.get("is_locked", False),
+            is_custom=False,
         )
         db.add(path)
         db.flush()
     return path
 
-def create_roadmap_node(db, path_id, topic_id, pos_x, pos_y, tier):
+
+def get_or_create_node(db, path_id, topic_id, pos_x, pos_y, tier, status="locked"):
+    """Return existing RoadmapNode or create a new one."""
     node = db.query(RoadmapNode).filter(
         RoadmapNode.path_id == path_id,
-        RoadmapNode.topic_id == topic_id
+        RoadmapNode.topic_id == topic_id,
     ).first()
     if not node:
         node = RoadmapNode(
@@ -70,90 +139,104 @@ def create_roadmap_node(db, path_id, topic_id, pos_x, pos_y, tier):
             position_x=pos_x,
             position_y=pos_y,
             tier=tier,
-            status="locked"
+            status=status,
         )
         db.add(node)
         db.flush()
     return node
 
-def create_roadmap_connection(db, path_id, from_node_id, to_node_id):
+
+def get_or_create_connection(db, path_id, from_node_id, to_node_id, connection_type="default"):
+    """Create a RoadmapConnection if it doesn't already exist."""
     conn = db.query(RoadmapConnection).filter(
         RoadmapConnection.path_id == path_id,
         RoadmapConnection.from_node_id == from_node_id,
-        RoadmapConnection.to_node_id == to_node_id
+        RoadmapConnection.to_node_id == to_node_id,
     ).first()
     if not conn:
-        conn = RoadmapConnection(
+        db.add(RoadmapConnection(
             path_id=path_id,
             from_node_id=from_node_id,
             to_node_id=to_node_id,
-            connection_type="default"
+            connection_type=connection_type,
+        ))
+
+
+# ── Core seeding logic ─────────────────────────────────────────────────────
+
+def seed_roadmap_from_json(db, filepath):
+    """Load a single JSON file and seed its roadmap, nodes, topics, and connections."""
+    with open(filepath, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    path_data = data["path"]
+    nodes_data = data["nodes"]
+    connections_data = data["connections"]
+
+    print(f"  Seeding roadmap: {path_data['title']} ({len(nodes_data)} nodes, {len(connections_data)} connections)")
+
+    # 1. Create topics (with subtopics) for every node
+    topic_by_node_title = {}
+    for node in nodes_data:
+        topic = get_or_create_topic(
+            db,
+            title=node["title"],
+            description=node["description"],
+            keywords=node.get("topic_keywords"),
         )
-        db.add(conn)
+        topic_by_node_title[node["title"]] = topic
+
+        # Create subtopics if mapping exists
+        subtopics = SUBTOPICS.get(node["title"])
+        if subtopics:
+            create_subtopic_connections(db, topic, subtopics)
+
+    # 2. Create the RoadmapPath
+    path = get_or_create_path(db, path_data)
+
+    # 3. Create RoadmapNode records and build json_id → db_node_id mapping
+    json_id_to_db_node = {}
+    for idx, node in enumerate(nodes_data):
+        topic = topic_by_node_title[node["title"]]
+        # First node in the roadmap gets status="available"
+        status = "available" if idx == 0 else "locked"
+        db_node = get_or_create_node(
+            db,
+            path_id=path.id,
+            topic_id=topic.id,
+            pos_x=node["position_x"],
+            pos_y=node["position_y"],
+            tier=node["tier"],
+            status=status,
+        )
+        json_id_to_db_node[node["id"]] = db_node
+
+    # 4. Create RoadmapConnection records using the id mapping
+    for conn in connections_data:
+        from_db_node = json_id_to_db_node[conn["from_node_id"]]
+        to_db_node = json_id_to_db_node[conn["to_node_id"]]
+        get_or_create_connection(
+            db,
+            path_id=path.id,
+            from_node_id=from_db_node.id,
+            to_node_id=to_db_node.id,
+            connection_type=conn.get("connection_type", "default"),
+        )
+
 
 def seed_data(db):
-    print("Creating topics and subtopics...")
-    # 1. Create Topics and Subtopics
-    html_topic = create_topic_with_subtopics(db, "HTML", [
-        "HTML Basics", "Semantic HTML", "Forms and Validation", "Accessibility"
-    ])
-    css_topic = create_topic_with_subtopics(db, "CSS", [
-        "CSS Selectors", "CSS Specificity", "CSS Box Model", "CSS Display", 
-        "CSS Flexbox", "CSS Grid", "CSS Animations"
-    ])
-    js_topic = create_topic_with_subtopics(db, "JavaScript", [
-        "Syntax & Basic Constructs", "DOM Manipulation", "Fetch API / Ajax", "ES6+ Features"
-    ])
+    """Seed all roadmaps from JSON files and create default user profile."""
+    print("Loading roadmap data from JSON files...")
 
-    internet_topic = create_topic_with_subtopics(db, "Internet Fundamentals", [
-        "How does the internet work?", "What is HTTP?", "Browsers and how they work", "DNS and how it works"
-    ])
-    os_topic = create_topic_with_subtopics(db, "Operating Systems", [
-        "Terminal Usage", "How OS works in General", "Process Management", "Threads and Concurrency"
-    ])
-    lang_topic = create_topic_with_subtopics(db, "Programming Languages", [
-        "Python", "Java", "C#", "Go", "Rust", "Node.js"
-    ])
+    for filename in JSON_FILES:
+        filepath = os.path.join(DATA_DIR, filename)
+        if not os.path.exists(filepath):
+            print(f"  WARNING: {filepath} not found, skipping.")
+            continue
+        seed_roadmap_from_json(db, filepath)
 
-    print("Creating roadmap paths...")
-    # 2. Create Roadmap Paths
-    frontend_path = get_or_create_path(
-        db, 
-        "Frontend Developer", 
-        "Step by step guide to becoming a modern frontend developer.", 
-        "Layout", 
-        "bg-gradient-to-br from-blue-500 to-cyan-500", 
-        1
-    )
-    backend_path = get_or_create_path(
-        db, 
-        "Backend Developer", 
-        "Step by step guide to becoming a modern backend developer.", 
-        "Server", 
-        "bg-gradient-to-br from-green-500 to-emerald-500", 
-        2
-    )
-
-    print("Creating roadmap nodes...")
-    # 3. Create Roadmap Nodes
-    # Frontend Nodes
-    fe_node_html = create_roadmap_node(db, frontend_path.id, html_topic.id, 0, 0, 1)
-    fe_node_css = create_roadmap_node(db, frontend_path.id, css_topic.id, 0, 100, 2)
-    fe_node_js = create_roadmap_node(db, frontend_path.id, js_topic.id, 0, 200, 3)
-
-    create_roadmap_connection(db, frontend_path.id, fe_node_html.id, fe_node_css.id)
-    create_roadmap_connection(db, frontend_path.id, fe_node_css.id, fe_node_js.id)
-
-    # Backend Nodes
-    be_node_internet = create_roadmap_node(db, backend_path.id, internet_topic.id, 0, 0, 1)
-    be_node_os = create_roadmap_node(db, backend_path.id, os_topic.id, 0, 100, 2)
-    be_node_lang = create_roadmap_node(db, backend_path.id, lang_topic.id, 0, 200, 3)
-
-    create_roadmap_connection(db, backend_path.id, be_node_internet.id, be_node_os.id)
-    create_roadmap_connection(db, backend_path.id, be_node_os.id, be_node_lang.id)
-
+    # Create default user profile
     print("Creating default user profile...")
-    # 4. Create Default User Profile if needed
     user = db.query(UserProfile).filter(UserProfile.id == 1).first()
     if not user:
         user = UserProfile(
@@ -167,24 +250,27 @@ def seed_data(db):
         db.add(user)
 
     db.commit()
+    print("Done.")
+
 
 def main():
     from server.config import get_settings
+
     settings = get_settings()
     database_url = settings.DATABASE_URL
     engine = create_engine(
         database_url,
         connect_args={"check_same_thread": False} if "sqlite" in database_url else {},
     )
-    
-    # In case there are missing tables, create them
+
+    # Ensure all tables exist
     Base.metadata.create_all(bind=engine)
-    
+
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
-    
+
     try:
-        print("Seeding database with updated schema...")
+        print("Seeding database with roadmap data...")
         seed_data(db)
         print("Seeding completed successfully!")
     except Exception as e:
@@ -193,6 +279,7 @@ def main():
         raise
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     main()

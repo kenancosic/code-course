@@ -23,7 +23,7 @@ Inspired by [boot.dev](https://boot.dev) and [roadmap.sh](https://roadmap.sh).
 - **Zustand** - Client state management
 - **React Router** - Routing
 - **Monaco Editor** - Code editor
-- **shadcn/ui** - UI components
+- **shadcn/ui** - UI components (D&D themed with custom fantasy naming for pages)
 
 ### Backend
 
@@ -94,8 +94,8 @@ cd server
 # Run migrations
 alembic upgrade head
 
-# Seed roadmap data (optional)
-python -m seed.seed_roadmaps
+# Seed roadmap data (creates 4 roadmaps with 44 nodes and 250+ subtopics)
+cd server && python -m seed.seed_roadmaps
 ```
 
 The SQLite database will be created at `server/mythiccode.db`.
@@ -199,6 +199,7 @@ code-course/
 | `uvicorn main:app --reload`                | Start dev server with hot reload |
 | `alembic upgrade head`                     | Run database migrations          |
 | `alembic revision --autogenerate -m "msg"` | Create new migration             |
+| `python -m seed.seed_roadmaps`             | Seed roadmap data (run from server/ dir) |
 
 ## Environment Variables
 
@@ -206,7 +207,7 @@ code-course/
 
 | Variable             | Description                  | Default |
 | -------------------- | ---------------------------- | ------- |
-| `VITE_USE_MOCK_DATA` | Use mock data instead of API | `true`  |
+| `VITE_USE_MOCK_DATA` | Use mock data instead of API | `false` (set to `true` for frontend-only development without backend) |
 | `VITE_API_BASE_URL`  | API base URL                 | `/api`  |
 
 ### Backend (server/.env)
@@ -215,8 +216,8 @@ code-course/
 | -------------------- | -------------------- | ----------------------------- |
 | `DATABASE_URL`       | SQLite database URL  | `sqlite:///./mythiccode.db`   |
 | `OPENROUTER_API_KEY` | OpenRouter API key   | `None`                        |
-| `LLM_DEFAULT_MODEL`  | Default LLM model    | `anthropic/claude-3.5-sonnet` |
-| `LLM_FAST_MODEL`     | Fast/cheap LLM model | `google/gemini-flash-1.5`     |
+| `LLM_DEFAULT_MODEL`  | Default LLM model    | `anthropic/claude-sonnet-4.6` |
+| `LLM_FAST_MODEL`     | Fast/cheap LLM model | `google/gemini-2.5-flash`     |
 | `DEBUG`              | Enable debug mode    | `false`                       |
 
 ## Documentation

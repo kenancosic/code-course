@@ -1,0 +1,4 @@
+interface:
+  display_name: "React + FastAPI Fullstack"
+  short_description: "Build and maintain React and FastAPI apps"
+  default_prompt: "Use $react-fastapi-fullstack to implement or improve a React frontend and FastAPI backend feature end to end."

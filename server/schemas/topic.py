@@ -26,3 +26,8 @@ class TopicConnectionCreate(TopicConnectionBase):
 class TopicConnectionResponse(TopicConnectionBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+
+class TopicDetailResponse(TopicResponse):
+    subtopics: List[TopicResponse] = []
+    outgoing_connections: List[TopicConnectionResponse] = []
+    incoming_connections: List[TopicConnectionResponse] = []

@@ -36,18 +36,15 @@ code-course/
 │   │   ├── __init__.py
 │   │   ├── roadmaps.py              # Roadmap paths, nodes, connections
 │   │   ├── courses.py               # Course CRUD, generation trigger
-│   │   ├── lessons.py               # Lesson content retrieval
+│   │   ├── topics.py                # Topic management
 │   │   ├── progress.py              # XP, completion, level tracking
 │   │   ├── practice.py              # Code execution and evaluation
-│   │   ├── pdf.py                   # PDF upload and processing
 │   │   └── profile.py               # User stats and achievements
 │   ├── services/                    # Business logic layer
 │   │   ├── __init__.py
-│   │   ├── roadmap_service.py       # Roadmap data loading and queries
 │   │   ├── course_service.py        # Course generation orchestration
 │   │   ├── progress_service.py      # XP calculation, leveling logic
 │   │   ├── practice_service.py      # Code execution sandbox
-│   │   ├── pdf_service.py           # PDF extraction and chunking
 │   │   └── profile_service.py       # Aggregated user stats
 │   ├── llm/                         # LLM integration layer
 │   │   ├── __init__.py
@@ -56,28 +53,23 @@ code-course/
 │   │   │   ├── outline.py           # Topic research and outline
 │   │   │   ├── lesson.py            # Lesson content with D&D flavor
 │   │   │   ├── exercises.py         # Code examples and exercises
-│   │   │   ├── quiz.py              # Evaluation and quiz generation
-│   │   │   ├── pdf_extract.py       # PDF content extraction
-│   │   │   └── pdf_structure.py     # PDF course structuring
+│   │   │   └── quiz.py              # Evaluation and quiz generation
 │   │   ├── agents/                  # Multi-agent pipeline definitions
 │   │   │   ├── __init__.py
-│   │   │   ├── course_pipeline.py   # Sequential course generation agents
-│   │   │   └── pdf_pipeline.py      # PDF processing agents
+│   │   │   └── course_pipeline.py   # Sequential course generation agents
 │   │   └── streaming.py             # SSE streaming helpers
 │   ├── models/                      # SQLAlchemy ORM models
 │   │   ├── __init__.py
+│   │   ├── topic.py                 # Topic definitions
 │   │   ├── roadmap.py               # RoadmapPath, RoadmapNode, RoadmapConnection
 │   │   ├── course.py                # Course, Lesson
-│   │   ├── progress.py              # UserProgress, UserProfile
-│   │   ├── practice.py              # PracticeSession
-│   │   └── pdf.py                   # UploadedPdf
+│   │   └── progress.py              # UserProgress, UserProfile
 │   ├── schemas/                     # Pydantic request/response schemas
 │   │   ├── __init__.py
 │   │   ├── roadmap.py
 │   │   ├── course.py
+│   │   ├── topic.py
 │   │   ├── progress.py
-│   │   ├── practice.py
-│   │   ├── pdf.py
 │   │   └── profile.py
 │   ├── seed/                        # Database seed data
 │   │   ├── __init__.py
@@ -114,7 +106,6 @@ code-course/
 │   │   ├── courses.ts               # Course API functions
 │   │   ├── progress.ts              # Progress API functions
 │   │   ├── practice.ts              # Practice API functions
-│   │   ├── pdf.ts                   # PDF upload API functions
 │   │   └── profile.ts               # Profile API functions
 │   ├── stores/                      # NEW — Zustand state stores
 │   │   ├── progress-store.ts        # XP, level, completions
@@ -174,28 +165,25 @@ All endpoints are prefixed with `/api`.
 
 #### Roadmap API — [`server/routers/roadmaps.py`](server/routers/roadmaps.py)
 
-| Method | Path                                      | Description                                            |
-| ------ | ----------------------------------------- | ------------------------------------------------------ |
-| `GET`  | `/api/roadmaps`                           | List all roadmap paths with summary stats              |
-| `GET`  | `/api/roadmaps/{path_id}`                 | Get single roadmap path with all nodes and connections |
-| `GET`  | `/api/roadmaps/{path_id}/nodes`           | Get all nodes for a path                               |
-| `GET`  | `/api/roadmaps/{path_id}/nodes/{node_id}` | Get single node with detail                            |
+| Method | Path                      | Description                                            |
+| ------ | ------------------------- | ------------------------------------------------------ |
+| `GET`  | `/api/roadmaps`           | List all roadmap paths with summary stats              |
+| `GET`  | `/api/roadmaps/{path_id}` | Get single roadmap path with all nodes and connections |
 
 **Response shape for `GET /api/roadmaps/{path_id}`:**
 
 ```json
 {
-  "id": "frontend",
+  "id": 1,
   "title": "Path of the Visionary - Frontend",
   "description": "Master the ancient arts of HTML, CSS, React...",
   "icon": "Monitor",
-  "color_from": "#2563eb",
-  "color_to": "#06b6d4",
+  "colors": "from-blue-500 to-cyan-500",
   "total_nodes": 24,
   "completed_nodes": 8,
   "nodes": [
     {
-      "id": "html-basics",
+      "id": 1,
       "title": "HTML Glyphs",
       "description": "The foundational language of the visual realm.",
       "position_x": 50,
@@ -204,7 +192,7 @@ All endpoints are prefixed with `/api`.
       "tier": 1
     }
   ],
-  "connections": [{ "from_node_id": "html-basics", "to_node_id": "css-basics", "type": "required" }]
+  "connections": [{ "from_node_id": 1, "to_node_id": 2, "type": "default" }]
 }
 ```
 
@@ -222,9 +210,7 @@ All endpoints are prefixed with `/api`.
 
 ```json
 {
-  "topic": "CSS Enchantments",
-  "roadmap_path_id": "frontend",
-  "roadmap_node_id": "css-basics",
+  "topic_ids": [5, 12],
   "model": "anthropic/claude-sonnet-4-20250514"
 }
 ```
@@ -305,18 +291,6 @@ Included in the courses router above. Full CRUD for persisted course data.
   "test_cases": [{ "input": "5", "expected_output": "32" }]
 }
 ```
-
-#### PDF Processing API — [`server/routers/pdf.py`](server/routers/pdf.py)
-
-| Method   | Path                        | Description                                         |
-| -------- | --------------------------- | --------------------------------------------------- |
-| `POST`   | `/api/pdf/upload`           | Upload PDF file, store metadata                     |
-| `GET`    | `/api/pdf`                  | List uploaded PDFs                                  |
-| `POST`   | `/api/pdf/{pdf_id}/process` | Trigger multi-agent processing (returns SSE stream) |
-| `GET`    | `/api/pdf/{pdf_id}`         | Get PDF metadata and processing status              |
-| `DELETE` | `/api/pdf/{pdf_id}`         | Delete PDF and associated data                      |
-
-**`POST /api/pdf/upload`:** Multipart form upload. PDF stored in `server/uploads/` directory. Max size 50MB.
 
 #### Profile API — [`server/routers/profile.py`](server/routers/profile.py)
 
@@ -429,7 +403,6 @@ erDiagram
     USER_PROFILE ||--o{ USER_ACHIEVEMENTS : earns
     ACHIEVEMENTS ||--o{ USER_ACHIEVEMENTS : unlocked_as
     COURSES ||--o{ PRACTICE_SESSIONS : related_to
-    UPLOADED_PDFS ||--o{ COURSES : generates
 ```
 
 ### 3.2 Table Definitions
@@ -462,62 +435,61 @@ Defines relationships between topics (prerequisites, subtopics, etc.).
 
 Represents a top-level learning path (e.g., Frontend, Backend).
 
-| Column        | Type        | Constraints            | Description                                            |
-| ------------- | ----------- | ---------------------- | ------------------------------------------------------ |
-| `id`          | `TEXT`      | PK                     | Slug identifier, e.g. `frontend`                       |
-| `title`       | `TEXT`      | NOT NULL               | Display title, e.g. `Path of the Visionary - Frontend` |
-| `description` | `TEXT`      | NOT NULL               | Short description                                      |
-| `icon`        | `TEXT`      | NOT NULL               | Lucide icon name, e.g. `Monitor`                       |
-| `color_from`  | `TEXT`      | NOT NULL               | Gradient start hex color                               |
-| `color_to`    | `TEXT`      | NOT NULL               | Gradient end hex color                                 |
-| `sort_order`  | `INTEGER`   | NOT NULL DEFAULT 0     | Display ordering                                       |
-| `is_locked`   | `BOOLEAN`   | NOT NULL DEFAULT FALSE | Whether the path is available                          |
-| `created_at`  | `TIMESTAMP` | NOT NULL DEFAULT NOW   | —                                                      |
+| Column        | Type        | Constraints                     | Description                                                  |
+| ------------- | ----------- | ------------------------------- | ------------------------------------------------------------ |
+| `id`          | `INTEGER`   | PK AUTOINCREMENT                | Unique identifier                                            |
+| `title`       | `TEXT`      | NOT NULL                        | Display title, e.g. `Path of the Visionary - Frontend`       |
+| `description` | `TEXT`      |                                 | Short description                                            |
+| `icon`        | `TEXT`      |                                 | Lucide icon name, e.g. `Monitor`                             |
+| `colors`      | `TEXT`      |                                 | Tailwind gradient class, e.g. `from-orange-500 to-amber-500` |
+| `sort_order`  | `INTEGER`   | DEFAULT 0                       | Display ordering                                             |
+| `is_locked`   | `BOOLEAN`   | DEFAULT FALSE                   | Whether the path is locked                                   |
+| `user_id`     | `INTEGER`   | FK → user_profiles.id, NULLABLE | Owner user (NULL for system paths)                           |
+| `is_custom`   | `BOOLEAN`   | DEFAULT FALSE                   | Whether user-created                                         |
+| `created_at`  | `TIMESTAMP` |                                 | Creation timestamp                                           |
 
 #### `roadmap_nodes`
 
 Individual nodes within a roadmap path, linked to topics.
 
-| Column       | Type      | Constraints                       | Description                               |
-| ------------ | --------- | --------------------------------- | ----------------------------------------- |
-| `id`         | `INTEGER` | PK AUTOINCREMENT                  | Unique identifier                         |
-| `path_id`    | `INTEGER` | FK → `roadmap_paths.id`, NOT NULL | Parent path                               |
-| `topic_id`   | `INTEGER` | FK → `topics.id`, NOT NULL        | Associated topic                          |
-| `position_x` | `INTEGER` | NOT NULL DEFAULT 0                | X position on roadmap canvas              |
-| `position_y` | `INTEGER` | NOT NULL DEFAULT 0                | Y position on roadmap canvas              |
-| `tier`       | `INTEGER` | NOT NULL DEFAULT 1                | Difficulty tier (1=beginner ... 5=expert) |
-| `status`     | `TEXT`    | NOT NULL DEFAULT `locked`         | `locked`, `unlocked`, `completed`         |
+| Column       | Type      | Constraints                       | Description                                       |
+| ------------ | --------- | --------------------------------- | ------------------------------------------------- |
+| `id`         | `INTEGER` | PK AUTOINCREMENT                  | Unique identifier                                 |
+| `path_id`    | `INTEGER` | FK → `roadmap_paths.id`, NOT NULL | Parent path                                       |
+| `topic_id`   | `INTEGER` | FK → `topics.id`, NOT NULL        | Associated topic                                  |
+| `position_x` | `INTEGER` | DEFAULT 0                         | X position on roadmap canvas                      |
+| `position_y` | `INTEGER` | DEFAULT 0                         | Y position on roadmap canvas                      |
+| `tier`       | `INTEGER` | DEFAULT 1                         | Difficulty tier (1=beginner ... 5=expert)         |
+| `status`     | `TEXT`    | DEFAULT `locked`                  | `locked`, `available`, `in_progress`, `completed` |
 
 #### `roadmap_connections`
 
 Directed edges between nodes for rendering the tree.
 
-| Column            | Type      | Constraints                       | Description              |
-| ----------------- | --------- | --------------------------------- | ------------------------ |
-| `id`              | `INTEGER` | PK AUTOINCREMENT                  | —                        |
-| `path_id`         | `TEXT`    | FK → `roadmap_paths.id`, NOT NULL | Parent path              |
-| `from_node_id`    | `TEXT`    | FK → `roadmap_nodes.id`, NOT NULL | Source node              |
-| `to_node_id`      | `TEXT`    | FK → `roadmap_nodes.id`, NOT NULL | Target node              |
-| `connection_type` | `TEXT`    | NOT NULL DEFAULT `required`       | `required` or `optional` |
+| Column            | Type      | Constraints                       | Description           |
+| ----------------- | --------- | --------------------------------- | --------------------- |
+| `id`              | `INTEGER` | PK AUTOINCREMENT                  | —                     |
+| `path_id`         | `INTEGER` | FK → `roadmap_paths.id`, NOT NULL | Parent path           |
+| `from_node_id`    | `INTEGER` | FK → `roadmap_nodes.id`, NOT NULL | Source node           |
+| `to_node_id`      | `INTEGER` | FK → `roadmap_nodes.id`, NOT NULL | Target node           |
+| `connection_type` | `TEXT`    | DEFAULT `default`                 | Connection style type |
 
 **Unique constraint:** `(from_node_id, to_node_id)`
 
 #### `courses`
 
-Generated course content (from topics or PDFs).
+Generated course content (from topics).
 
-| Column          | Type        | Constraints                       | Description                                          |
-| --------------- | ----------- | --------------------------------- | ---------------------------------------------------- |
-| `id`            | `INTEGER`   | PK AUTOINCREMENT                  | Unique identifier                                    |
-| `title`         | `TEXT`      | NOT NULL                          | Course title, e.g. `The Arcane Art of CSS`           |
-| `description`   | `TEXT`      |                                   | Course summary                                       |
-| `topic_id`      | `INTEGER`   | FK → `topics.id`, NOT NULL        | Primary topic for the course                         |
-| `pdf_id`        | `TEXT`      | FK → `uploaded_pdfs.id`, NULLABLE | Source PDF (NULL if from topics)                     |
-| `model_used`    | `TEXT`      |                                   | LLM model that generated the content                 |
-| `total_lessons` | `INTEGER`   | NOT NULL DEFAULT 0                | Lesson count                                         |
-| `total_xp`      | `INTEGER`   | NOT NULL DEFAULT 0                | Total XP available in this course                    |
-| `status`        | `TEXT`      | NOT NULL DEFAULT `locked`         | `locked`, `unlocked`, `generating`, `ready`, `error` |
-| `created_at`    | `TIMESTAMP` | NOT NULL DEFAULT NOW              | —                                                    |
+| Column          | Type        | Constraints                | Description                                           |
+| --------------- | ----------- | -------------------------- | ----------------------------------------------------- |
+| `id`            | `INTEGER`   | PK AUTOINCREMENT           | Unique identifier                                     |
+| `title`         | `TEXT`      | NOT NULL                   | Course title, e.g. `The Arcane Art of CSS`            |
+| `description`   | `TEXT`      |                            | Course summary                                        |
+| `topic_id`      | `INTEGER`   | FK → `topics.id`, NOT NULL | Primary topic for the course                          |
+| `total_lessons` | `INTEGER`   | DEFAULT 0                  | Lesson count                                          |
+| `total_xp`      | `INTEGER`   | DEFAULT 0                  | Total XP available in this course                     |
+| `status`        | `TEXT`      | DEFAULT `locked`           | `locked`, `generating`, `ready`, `completed`, `error` |
+| `created_at`    | `TIMESTAMP` |                            | Creation timestamp                                    |
 
 #### `lessons`
 
@@ -531,9 +503,9 @@ Individual lessons within a course. Each lesson includes an interactive task.
 | `content_markdown` | `TEXT`      |                                               | Full lesson content in Markdown        |
 | `task_type`        | `TEXT`      |                                               | Task type: `quiz`, `coding`, `project` |
 | `task_content`     | `TEXT`      |                                               | Task instructions and requirements     |
-| `sort_order`       | `INTEGER`   | NOT NULL DEFAULT 0                            | Position within course                 |
-| `xp_reward`        | `INTEGER`   | NOT NULL DEFAULT 10                           | XP awarded on completion               |
-| `created_at`       | `TIMESTAMP` | NOT NULL DEFAULT NOW                          | —                                      |
+| `sort_order`       | `INTEGER`   | DEFAULT 0                                     | Position within course                 |
+| `xp_reward`        | `INTEGER`   | DEFAULT 10                                    | XP awarded on completion               |
+| `created_at`       | `TIMESTAMP` |                                               | —                                      |
 
 #### `user_profile`
 
@@ -544,12 +516,13 @@ Single-row table (local-only, no auth — one implicit user).
 | `id`              | `INTEGER`   | PK DEFAULT 1                      | Always 1 (single user) |
 | `display_name`    | `TEXT`      | NOT NULL DEFAULT `Adventurer`     | Character name         |
 | `avatar_seed`     | `TEXT`      | NOT NULL DEFAULT `Felix`          | DiceBear avatar seed   |
-| `title`           | `TEXT`      | NOT NULL DEFAULT `Novice`         | Current title          |
 | `total_xp`        | `INTEGER`   | NOT NULL DEFAULT 0                | Lifetime XP earned     |
 | `level`           | `INTEGER`   | NOT NULL DEFAULT 1                | Current level          |
-| `current_path_id` | `TEXT`      | FK → `roadmap_paths.id`, NULLABLE | Active roadmap path    |
-| `created_at`      | `TIMESTAMP` | NOT NULL DEFAULT NOW              | —                      |
-| `updated_at`      | `TIMESTAMP` | NOT NULL DEFAULT NOW              | —                      |
+| `current_path_id` | `INTEGER`   | FK → `roadmap_paths.id`, NULLABLE | Active roadmap path    |
+| `created_at`      | `TIMESTAMP` |                                   | —                      |
+| `updated_at`      | `TIMESTAMP` |                                   | —                      |
+
+**Note:** `username`, `email`, `avatar_url`, and `title` columns do not exist in the actual schema.
 
 #### `user_progress`
 
@@ -558,11 +531,11 @@ Tracks completion of individual lessons.
 | Column               | Type        | Constraints                 | Description                    |
 | -------------------- | ----------- | --------------------------- | ------------------------------ |
 | `id`                 | `INTEGER`   | PK AUTOINCREMENT            | —                              |
-| `lesson_id`          | `TEXT`      | FK → `lessons.id`, NOT NULL | Completed lesson               |
-| `course_id`          | `TEXT`      | FK → `courses.id`, NOT NULL | Parent course                  |
-| `xp_earned`          | `INTEGER`   | NOT NULL                    | XP awarded for this completion |
+| `lesson_id`          | `INTEGER`   | FK → `lessons.id`, NOT NULL | Completed lesson               |
+| `course_id`          | `INTEGER`   | FK → `courses.id`, NOT NULL | Parent course                  |
+| `xp_earned`          | `INTEGER`   |                             | XP awarded for this completion |
 | `time_spent_seconds` | `INTEGER`   |                             | Time spent on lesson           |
-| `completed_at`       | `TIMESTAMP` | NOT NULL DEFAULT NOW        | —                              |
+| `completed_at`       | `TIMESTAMP` |                             | —                              |
 
 **Unique constraint:** `(lesson_id)` — a lesson can only be completed once.
 
@@ -595,35 +568,22 @@ Join table for unlocked achievements.
 
 #### `practice_sessions`
 
-Saved code practice attempts.
+Saved code practice attempts. **Note:** This model is defined inline in `practice_service.py`, NOT as a separate model file.
 
-| Column       | Type        | Constraints                    | Description                       |
-| ------------ | ----------- | ------------------------------ | --------------------------------- |
-| `id`         | `TEXT`      | PK                             | UUID                              |
-| `course_id`  | `TEXT`      | FK → `courses.id`, NULLABLE    | Related course                    |
-| `lesson_id`  | `TEXT`      | FK → `lessons.id`, NULLABLE    | Related lesson                    |
-| `title`      | `TEXT`      | NOT NULL                       | Session title / challenge name    |
-| `language`   | `TEXT`      | NOT NULL                       | `javascript` or `python`          |
-| `code`       | `TEXT`      | NOT NULL                       | Saved code                        |
-| `output`     | `TEXT`      |                                | Last execution output             |
-| `status`     | `TEXT`      | NOT NULL DEFAULT `in_progress` | `in_progress`, `passed`, `failed` |
-| `created_at` | `TIMESTAMP` | NOT NULL DEFAULT NOW           | —                                 |
-| `updated_at` | `TIMESTAMP` | NOT NULL DEFAULT NOW           | —                                 |
+| Column       | Type        | Constraints                    | Description                             |
+| ------------ | ----------- | ------------------------------ | --------------------------------------- |
+| `id`         | `INTEGER`   | PK AUTOINCREMENT               | Unique identifier                       |
+| `course_id`  | `TEXT`      | FK → `courses.id`, NULLABLE    | Related course (BUG: should be INTEGER) |
+| `lesson_id`  | `TEXT`      | FK → `lessons.id`, NULLABLE    | Related lesson (BUG: should be INTEGER) |
+| `title`      | `TEXT`      | NOT NULL                       | Session title / challenge name          |
+| `language`   | `TEXT`      | NOT NULL                       | `javascript` or `python`                |
+| `code`       | `TEXT`      | NOT NULL                       | Saved code                              |
+| `output`     | `TEXT`      |                                | Last execution output                   |
+| `status`     | `TEXT`      | NOT NULL DEFAULT `in_progress` | `in_progress`, `passed`, `failed`       |
+| `created_at` | `TIMESTAMP` | NOT NULL DEFAULT NOW           | —                                       |
+| `updated_at` | `TIMESTAMP` | NOT NULL DEFAULT NOW           | —                                       |
 
-#### `uploaded_pdfs`
-
-Metadata for uploaded course materials.
-
-| Column            | Type        | Constraints                 | Description                                    |
-| ----------------- | ----------- | --------------------------- | ---------------------------------------------- |
-| `id`              | `TEXT`      | PK                          | UUID                                           |
-| `filename`        | `TEXT`      | NOT NULL                    | Original filename                              |
-| `file_path`       | `TEXT`      | NOT NULL                    | Path in `server/uploads/`                      |
-| `file_size_bytes` | `INTEGER`   | NOT NULL                    | File size                                      |
-| `page_count`      | `INTEGER`   |                             | Number of pages                                |
-| `status`          | `TEXT`      | NOT NULL DEFAULT `uploaded` | `uploaded`, `processing`, `processed`, `error` |
-| `extracted_text`  | `TEXT`      |                             | Raw extracted text (for debugging)             |
-| `created_at`      | `TIMESTAMP` | NOT NULL DEFAULT NOW        | —                                              |
+**Known Issue:** The `course_id` and `lesson_id` columns are defined as TEXT but should be INTEGER to match the foreign key types. This is a type mismatch bug in the current implementation.
 
 ### 3.3 Migration Strategy
 
@@ -726,7 +686,7 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export function apiStream(path: string, body: unknown): EventSource {
-  // For SSE streaming (course generation, PDF processing)
+  // For SSE streaming (course generation)
 }
 ```
 
@@ -766,7 +726,7 @@ Each page transitions from static mockup to dynamic data:
 | [`RoadmapList.tsx`](src/app/pages/RoadmapList.tsx)     | Hardcoded `ROADMAPS` array             | Fetches from `/api/roadmaps`, progress from `/api/progress/roadmap/{id}`         |
 | [`RoadmapDetail.tsx`](src/app/pages/RoadmapDetail.tsx) | Hardcoded `ROADMAP_DATA` object        | Fetches from `/api/roadmaps/{path_id}` with nodes and connections                |
 | [`Practice.tsx`](src/app/pages/Practice.tsx)           | Static mock editor with `<pre>` blocks | Monaco Editor integration, executes via `/api/practice/execute`                  |
-| [`CreateCourse.tsx`](src/app/pages/CreateCourse.tsx)   | Static upload UI                       | Real file upload to `/api/pdf/upload`, SSE progress via `/api/pdf/{id}/process`  |
+| [`CreateCourse.tsx`](src/app/pages/CreateCourse.tsx)   | Static upload UI                       | Course generation from selected topics                                           |
 | [`Profile.tsx`](src/app/pages/Profile.tsx)             | Hardcoded stats                        | Fetches from `/api/profile`                                                      |
 | **`CourseView.tsx`** (NEW)                             | —                                      | New page at `/course/:courseId`, shows generated lessons with markdown rendering |
 
@@ -845,44 +805,7 @@ sequenceDiagram
     F-->>U: Render CourseView with lesson content
 ```
 
-### 5.2 PDF Upload → Processing → Course Creation
-
-```mermaid
-sequenceDiagram
-    participant U as User / Browser
-    participant F as React Frontend
-    participant A as FastAPI Backend
-    participant FS as File System
-    participant DB as SQLite
-    participant LLM as OpenRouter via litellm
-
-    U->>F: Drop PDF on upload zone
-    F->>A: POST /api/pdf/upload (multipart)
-    A->>FS: Save PDF to server/uploads/
-    A->>DB: INSERT uploaded_pdfs record
-    A-->>F: JSON with pdf_id, status: uploaded
-
-    U->>F: Click Initiate Ritual
-    F->>A: POST /api/pdf/{pdf_id}/process (SSE)
-    A->>FS: Read PDF file
-    A->>A: Extract text via PyMuPDF
-    A-->>F: SSE event - stage: extraction
-    A->>LLM: Agent - Chunk and identify sections
-    LLM-->>A: Section boundaries
-    A-->>F: SSE event - stage: chunking
-    A->>LLM: Agent - Structure into course outline
-    LLM-->>A: Course structure
-    A-->>F: SSE event - stage: structuring
-    A->>LLM: Agent - Generate lessons from chunks
-    LLM-->>A: Lesson content
-    A->>DB: INSERT course + lessons
-    A->>DB: UPDATE uploaded_pdfs status: processed
-    A-->>F: SSE event - stage: complete, course_id
-
-    F-->>U: Redirect to /course/{courseId}
-```
-
-### 5.3 Practice Coding → Execution → Evaluation
+### 5.2 Practice Coding → Execution → Evaluation
 
 ```mermaid
 sequenceDiagram
@@ -912,7 +835,7 @@ sequenceDiagram
     F-->>U: Display LLM feedback
 ```
 
-### 5.4 Progress Tracking Through All Activities
+### 5.3 Progress Tracking Through All Activities
 
 ```mermaid
 sequenceDiagram
@@ -1002,55 +925,7 @@ flowchart TD
 
 **Total approximate tokens per course:** ~20,000–40,000 (varies by lesson count and content depth)
 
-### 6.2 PDF Processing Pipeline
-
-Defined in [`server/llm/agents/pdf_pipeline.py`](server/llm/agents/pdf_pipeline.py).
-
-```mermaid
-flowchart TD
-    A[Input: Uploaded PDF] --> B[Step 1: PyMuPDF Text Extraction]
-    B --> C[Step 2: Section Chunker Agent]
-    C --> D[Step 3: Content Structurer Agent]
-    D --> E[Step 4: Lore Scribe Agent x N]
-    E --> F[Output: Course from PDF in DB]
-
-    style A fill:#831843,stroke:#ec4899,color:#fce7f3
-    style B fill:#1e1b4b,stroke:#6366f1,color:#e0e7ff
-    style C fill:#172554,stroke:#3b82f6,color:#dbeafe
-    style D fill:#064e3b,stroke:#10b981,color:#d1fae5
-    style E fill:#431407,stroke:#f97316,color:#fed7aa
-    style F fill:#831843,stroke:#ec4899,color:#fce7f3
-```
-
-#### Step 1: PyMuPDF Text Extraction (no LLM)
-
-- **Library:** `PyMuPDF` (fitz)
-- **Process:** Extract all text from PDF, page by page. Preserve headings and structure markers where possible.
-- **Output:** Raw text string with page markers
-
-#### Step 2: Section Chunker Agent
-
-- **Input:** First 8000 tokens of raw text (or full text if shorter)
-- **Prompt:** Identify logical section boundaries (chapters, topics) in this document. Return a JSON array of `{"title": "...", "start_page": N, "end_page": M}`.
-- **Output:** Section map
-- **Model:** Fast model
-- **Context strategy:** If document exceeds context window, process in overlapping 6000-token windows with 500-token overlap
-
-#### Step 3: Content Structurer Agent
-
-- **Input:** Section map + representative excerpts from each section
-- **Prompt:** Create a course outline from these document sections. Map sections to lessons with learning objectives. Apply D&D quest naming.
-- **Output:** Course outline JSON (same format as Agent 1 in topic pipeline)
-- **Model:** Fast model
-
-#### Step 4: Lore Scribe Agent (reuses Agent 2 from topic pipeline)
-
-- **Input:** Original PDF text chunk for each lesson + the outline
-- **Prompt:** Rewrite this content as an engaging lesson. Preserve technical accuracy. Add D&D flavor and analogies. Format as Markdown.
-- **Output:** Markdown lesson content
-- **Model:** Strong model
-
-### 6.3 Agent Communication Pattern
+### 6.2 Agent Communication Pattern
 
 **Sequential pipeline with shared context:**
 
@@ -1067,7 +942,7 @@ class PipelineContext:
 
 Each agent receives the `PipelineContext`, reads what it needs, writes its output, and calls `status_callback` to emit SSE events.
 
-### 6.4 Token Management and Context Window Strategy
+### 6.3 Token Management and Context Window Strategy
 
 | Concern           | Strategy                                                                         |
 | ----------------- | -------------------------------------------------------------------------------- |
@@ -1078,7 +953,7 @@ Each agent receives the `PipelineContext`, reads what it needs, writes its outpu
 | Context budget    | Reserve 2000 tokens for system prompt, allocate remaining to content             |
 | Failure recovery  | If a single lesson fails, retry that lesson only (not the whole pipeline)        |
 
-### 6.5 Prompt Templates Structure
+### 6.4 Prompt Templates Structure
 
 All prompts in [`server/llm/prompts/`](server/llm/prompts/) follow a consistent pattern:
 
@@ -1122,17 +997,16 @@ Each roadmap path is stored as a JSON file in [`server/seed/data/`](server/seed/
 
 ```json
 {
-  "id": "frontend",
+  "id": 1,
   "title": "Path of the Visionary - Frontend",
   "description": "Master the ancient arts of HTML, CSS, React, and build beautiful illusions in the browser realm.",
   "icon": "Monitor",
-  "color_from": "#2563eb",
-  "color_to": "#06b6d4",
+  "colors": "from-orange-500 to-amber-500",
   "is_locked": false,
   "sort_order": 1,
   "nodes": [
     {
-      "id": "internet-basics",
+      "id": 1,
       "title": "Internet Arcana",
       "description": "Understanding the mystical web of DNS, HTTP, and Browsers.",
       "position_x": 50,
@@ -1141,7 +1015,7 @@ Each roadmap path is stored as a JSON file in [`server/seed/data/`](server/seed/
       "topic_keywords": "internet,dns,http,https,browsers,hosting"
     },
     {
-      "id": "html-basics",
+      "id": 2,
       "title": "HTML Glyphs",
       "description": "The foundational language of the visual realm.",
       "position_x": 50,
@@ -1150,24 +1024,22 @@ Each roadmap path is stored as a JSON file in [`server/seed/data/`](server/seed/
       "topic_keywords": "html,semantic html,forms,tables,accessibility,seo"
     }
   ],
-  "connections": [
-    { "from": "internet-basics", "to": "html-basics", "type": "required" },
-    { "from": "html-basics", "to": "css-basics", "type": "required" }
-  ]
+  "connections": [{ "from_node_id": 1, "to_node_id": 2, "connection_type": "default" }]
 }
 ```
 
 ### 7.3 Seed Script
 
-[`server/seed/seed_roadmaps.py`](server/seed/seed_roadmaps.py) reads all JSON files from `server/seed/data/`, inserts into `roadmap_paths`, `roadmap_nodes`, and `roadmap_connections` tables. Idempotent — uses `INSERT OR REPLACE`.
+[`server/seed/seed_roadmaps.py`](server/seed/seed_roadmaps.py) reads all JSON files from `server/seed/data/`, inserts into `roadmap_paths`, `roadmap_nodes`, and `roadmap_connections` tables. Idempotent — uses SQLAlchemy queries with conditional create logic (checks for existing records before inserting).
 
 ### 7.4 Topic-to-Course Mapping
 
 When a user clicks "Generate Course" on a roadmap node, the system uses:
 
-- `roadmap_nodes.title` — as the course topic name
-- `roadmap_nodes.description` — as context for the LLM
-- `roadmap_nodes.topic_keywords` — as additional context to guide content generation
+- `roadmap_nodes.topic_id` — references the `topics` table
+- `topics.title` — as the course topic name
+- `topics.description` — as context for the LLM
+- `topics.keywords` — as additional context to guide content generation
 - `roadmap_nodes.tier` — to calibrate difficulty level in prompts
 
 This data is passed directly to Agent 1 (Outline Architect) to generate a course tailored to that exact topic.
@@ -1211,7 +1083,6 @@ Start with `frontend` fully populated (24 nodes). Other paths can start locked w
 | Complete all quiz questions (≥80% score)                | 75 XP         | +25 for 100% score                                         |
 | Complete a full course (all lessons)                    | 500 XP bonus  | —                                                          |
 | Complete a roadmap node (course generated and finished) | 300 XP bonus  | —                                                          |
-| Upload and process a PDF                                | 200 XP        | —                                                          |
 | Daily streak (complete ≥1 lesson per day)               | 50 XP per day | Streak multiplier: x1.5 after 7 days, x2 after 30 days     |
 
 ### 8.3 Level Progression Formula
@@ -1221,6 +1092,15 @@ Exponential curve — each level requires more XP than the last:
 ```
 XP required for level N = floor(100 * N^1.5)
 ```
+
+**Known Issue — Conflicting XP Formulas:**
+
+There are TWO conflicting XP formulas in the codebase:
+
+1. **`server/services/progress_service.py`**: `floor(100 * N^1.5)` — exponential curve
+2. **`server/services/profile_service.py`**: `level * 100` — linear progression
+
+This inconsistency causes level calculations to differ depending on which service computes them. The exponential formula is the intended design, but the profile service may report different values.
 
 | Level | Total XP Required | XP for This Level | Title          |
 | ----- | ----------------- | ----------------- | -------------- |
@@ -1275,25 +1155,24 @@ Achievements are checked after every XP-awarding action in [`server/services/pro
 
 #### Achievement Definitions (seeded into `achievements` table)
 
-| ID                       | Title              | Description                     | Category    | Trigger            | Value |
-| ------------------------ | ------------------ | ------------------------------- | ----------- | ------------------ | ----- |
-| `first_blood`            | First Blood        | Complete your first lesson      | combat      | `lesson_count`     | 1     |
-| `getting_started`        | The Journey Begins | Complete your first course      | exploration | `course_count`     | 1     |
-| `five_quests`            | Quest Hoarder      | Complete 5 courses              | exploration | `course_count`     | 5     |
-| `ten_quests`             | Legendary Explorer | Complete 10 courses             | exploration | `course_count`     | 10    |
-| `centurion`              | Centurion          | Complete 100 lessons            | combat      | `lesson_count`     | 100   |
-| `xp_1000`                | Bronze Chalice     | Earn 1,000 total XP             | mastery     | `xp_total`         | 1000  |
-| `xp_5000`                | Silver Chalice     | Earn 5,000 total XP             | mastery     | `xp_total`         | 5000  |
-| `xp_10000`               | Gold Chalice       | Earn 10,000 total XP            | mastery     | `xp_total`         | 10000 |
-| `xp_50000`               | Mythic Chalice     | Earn 50,000 total XP            | mastery     | `xp_total`         | 50000 |
-| `streak_7`               | Dedicated Student  | 7-day learning streak           | mastery     | `streak`           | 7     |
-| `streak_30`              | Iron Will          | 30-day learning streak          | mastery     | `streak`           | 30    |
-| `path_complete_frontend` | Visionary Complete | Finish all Frontend nodes       | exploration | `path_complete`    | 1     |
-| `arena_warrior`          | Arena Warrior      | Complete 10 practice challenges | combat      | `practice_count`   | 10    |
-| `arena_champion`         | Arena Champion     | Complete 50 practice challenges | combat      | `practice_count`   | 50    |
-| `forgemaster`            | Forgemaster        | Create 5 courses from PDFs      | crafting    | `pdf_course_count` | 5     |
-| `data_hoarder`           | Data Hoarder       | Save 10 custom courses          | crafting    | `course_count`     | 10    |
-| `labyrinth_walker`       | Labyrinth Walker   | Pass a recursion challenge      | combat      | `special`          | —     |
+| ID                       | Title              | Description                     | Category    | Trigger          | Value |
+| ------------------------ | ------------------ | ------------------------------- | ----------- | ---------------- | ----- |
+| `first_blood`            | First Blood        | Complete your first lesson      | combat      | `lesson_count`   | 1     |
+| `getting_started`        | The Journey Begins | Complete your first course      | exploration | `course_count`   | 1     |
+| `five_quests`            | Quest Hoarder      | Complete 5 courses              | exploration | `course_count`   | 5     |
+| `ten_quests`             | Legendary Explorer | Complete 10 courses             | exploration | `course_count`   | 10    |
+| `centurion`              | Centurion          | Complete 100 lessons            | combat      | `lesson_count`   | 100   |
+| `xp_1000`                | Bronze Chalice     | Earn 1,000 total XP             | mastery     | `xp_total`       | 1000  |
+| `xp_5000`                | Silver Chalice     | Earn 5,000 total XP             | mastery     | `xp_total`       | 5000  |
+| `xp_10000`               | Gold Chalice       | Earn 10,000 total XP            | mastery     | `xp_total`       | 10000 |
+| `xp_50000`               | Mythic Chalice     | Earn 50,000 total XP            | mastery     | `xp_total`       | 50000 |
+| `streak_7`               | Dedicated Student  | 7-day learning streak           | mastery     | `streak`         | 7     |
+| `streak_30`              | Iron Will          | 30-day learning streak          | mastery     | `streak`         | 30    |
+| `path_complete_frontend` | Visionary Complete | Finish all Frontend nodes       | exploration | `path_complete`  | 1     |
+| `arena_warrior`          | Arena Warrior      | Complete 10 practice challenges | combat      | `practice_count` | 10    |
+| `arena_champion`         | Arena Champion     | Complete 50 practice challenges | combat      | `practice_count` | 50    |
+| `data_hoarder`           | Data Hoarder       | Save 10 custom courses          | crafting    | `course_count`   | 10    |
+| `labyrinth_walker`       | Labyrinth Walker   | Pass a recursion challenge      | combat      | `special`        | —     |
 
 #### Achievement Check Logic
 
@@ -1509,16 +1388,7 @@ python -m seed.seed_roadmaps
 - Implement practice session save/load
 - Connect exercise data from courses to practice challenges
 
-### Phase 6: PDF Processing and Course Creation
-
-- Add PyMuPDF dependency for PDF text extraction
-- Implement file upload endpoint with multipart handling
-- Build PDF processing pipeline (extract → chunk → structure → generate)
-- Wire `CreateCourse.tsx` upload UI to real backend
-- Add SSE progress display during PDF processing
-- Create redirect to `CourseView.tsx` after processing completes
-
-### Phase 7: Profile and Gamification System
+### Phase 6: Profile and Gamification System
 
 - Refactor `Profile.tsx` to fetch real data from `/api/profile`
 - Implement skill level calculation (XP per topic area)
@@ -1527,7 +1397,7 @@ python -m seed.seed_roadmaps
 - Implement daily streak tracking
 - Add activity feed to profile
 
-### Phase 8: Polish and Integration Testing
+### Phase 7: Polish and Integration Testing
 
 - End-to-end flow testing: roadmap → generate → learn → track
 - Error handling polish (loading states, error boundaries, retry)
@@ -1636,11 +1506,9 @@ Specified in `pyproject.toml`:
 | `alembic`           | ^1.14.x  | Database migrations                 |
 | `litellm`           | ^1.60.x  | Unified LLM API client              |
 | `pydantic-settings` | ^2.x     | Environment variable management     |
-| `python-multipart`  | ^0.0.x   | File upload support                 |
-| `pymupdf`           | ^1.25.x  | PDF text extraction                 |
 | `aiosqlite`         | ^0.20.x  | Async SQLite driver                 |
 | `httpx`             | ^0.28.x  | Async HTTP client (used by litellm) |
 
 ---
 
-_Document last updated: 2026-03-21_
+_Document last updated: 2026-03-26_

@@ -7,7 +7,8 @@ from sqlalchemy import or_
 
 from server.database import get_db
 from server.models import Topic, RoadmapPath, RoadmapNode, RoadmapConnection
-from server.schemas.topic import TopicResponse
+from server.models.topic import TopicConnection
+from server.schemas.topic import TopicResponse, TopicDetailResponse
 from server.schemas.roadmap import RoadmapPathResponse
 
 class GenerateRoadmapRequest(BaseModel):
@@ -89,13 +90,34 @@ async def generate_roadmap(
     db.refresh(roadmap_path)
     return roadmap_path
 
-@router.get("/{topic_id}", response_model=TopicResponse)
+@router.get("/{topic_id}", response_model=TopicDetailResponse)
 async def get_topic(topic_id: int, db: Session = Depends(get_db)):
-    """Get a single topic by ID."""
+    """Get a single topic by ID with subtopics and connections."""
     topic = db.query(Topic).filter(Topic.id == topic_id).first()
     if not topic:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Topic {topic_id} not found"
         )
-    return topic
+
+    # Fetch all connections involving this topic
+    outgoing = db.query(TopicConnection).filter(TopicConnection.from_topic_id == topic_id).all()
+    incoming = db.query(TopicConnection).filter(TopicConnection.to_topic_id == topic_id).all()
+
+    # Subtopics: child topics linked via "subtopic" relationship where this topic is the parent
+    subtopic_ids = [
+        conn.to_topic_id for conn in outgoing
+        if conn.relationship_type == "subtopic"
+    ]
+    subtopics = db.query(Topic).filter(Topic.id.in_(subtopic_ids)).all() if subtopic_ids else []
+
+    return TopicDetailResponse(
+        id=topic.id,
+        title=topic.title,
+        description=topic.description,
+        ai_generated=topic.ai_generated,
+        keywords=topic.keywords,
+        subtopics=subtopics,
+        outgoing_connections=outgoing,
+        incoming_connections=incoming,
+    )

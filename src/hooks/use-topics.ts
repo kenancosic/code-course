@@ -1,24 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 
-export interface Subtopic {
+export interface TopicBase {
   id: number;
   title: string;
   description: string;
-  topic_id: number;
+  ai_generated: boolean;
+  keywords: string | null;
 }
+
+/** @deprecated Use TopicBase instead */
+export type Subtopic = TopicBase;
 
 export interface TopicConnection {
   id: number;
   from_topic_id: number;
   to_topic_id: number;
-  connection_type: string;
+  relationship_type: string;
+  ai_confidence: number | null;
 }
 
-export interface Topic {
-  id: number;
-  title: string;
-  description: string;
-  subtopics: Subtopic[];
+export interface Topic extends TopicBase {
+  subtopics: TopicBase[];
   outgoing_connections: TopicConnection[];
   incoming_connections: TopicConnection[];
 }
