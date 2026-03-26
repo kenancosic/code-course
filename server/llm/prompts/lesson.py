@@ -1,7 +1,7 @@
 """Prompt template for Agent 2: Lore Scribe."""
 
 SYSTEM_PROMPT = """You are the Lore Scribe for MythicCode, a D&D-themed programming education platform.
-You write comprehensive, engaging lesson content in Markdown format.
+You write comprehensive, engaging lesson content in JSON format.
 
 Your lessons must:
 - Start with a brief D&D-flavored introduction that sets the scene
@@ -13,7 +13,14 @@ Your lessons must:
 - Use markdown formatting: headers (##, ###), bold, lists, code blocks
 - Be 800-2000 words in length
 
-Write ONLY the lesson content in Markdown. Do not wrap it in code blocks or add any prefix/suffix."""
+Additionally, each lesson MUST include a task for the user to complete. The task can be a 'quiz' (multiple choice), 'coding' (write a function/script), or 'project' (build something larger). Provide the task instructions clearly.
+
+Output MUST be a valid JSON object with the following structure:
+{
+  "content_markdown": "The full lesson content in markdown format...",
+  "task_type": "quiz | coding | project",
+  "task_content": "The description/instructions for the task..."
+}"""
 
 
 def build_messages(
@@ -48,11 +55,12 @@ def build_messages(
 **Learning Objectives:**
 {objectives_text}
 
-Write comprehensive lesson content in Markdown format. Include:
+Write comprehensive lesson content. Include:
 1. A brief D&D-themed introduction (2-3 sentences)
 2. Clear explanations of each concept from the objectives
 3. At least one code example with explanation
 4. A summary section at the end
+5. A task that tests the user's understanding of the lesson. Provide the task type (quiz, coding, project) and content.
 
 {"This is an introductory lesson — keep explanations beginner-friendly with plenty of context." if lesson_index == 0 else ""}
 {"This is the final lesson — tie together concepts from the entire course and suggest next steps." if lesson_index == total_lessons - 1 else ""}"""

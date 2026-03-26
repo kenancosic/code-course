@@ -1,10 +1,12 @@
-import { Compass, Play, BookOpen, Star, Trophy, Scroll } from "lucide-react";
-import { Link } from "react-router";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Progress } from "../components/ui/progress";
-import { Skeleton } from "../components/ui/skeleton";
-import { useProfile, useRoadmaps, useProgressSummary, useCourses } from "../../hooks";
+import { Compass, Play, BookOpen, Star, Trophy, Scroll, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Progress } from '../components/ui/progress';
+import { Skeleton } from '../components/ui/skeleton';
+import { Input } from '../components/ui/input';
+import { useProfile, useRoadmaps, useProgressSummary, useCourses } from '../../hooks';
 
 interface Profile {
   id: string;
@@ -26,19 +28,45 @@ interface Profile {
 }
 
 export function Home() {
-  const { data: profile, isLoading: profileLoading } = useProfile() as { data: Profile | undefined; isLoading: boolean };
+  const navigate = useNavigate();
+  const { data: profile, isLoading: profileLoading } = useProfile() as {
+    data: Profile | undefined;
+    isLoading: boolean;
+  };
   const { data: progress, isLoading: progressLoading } = useProgressSummary();
   const { data: roadmaps, isLoading: roadmapsLoading } = useRoadmaps();
   const { data: courses, isLoading: coursesLoading } = useCourses();
 
+  const [customTopic, setCustomTopic] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGeneratePath = async () => {
+    if (!customTopic.trim()) return;
+    setIsGenerating(true);
+    try {
+      const response = await fetch('/api/topics/generate-roadmap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: customTopic }),
+      });
+      if (!response.ok) throw new Error('Failed to generate path');
+      const data = await response.json();
+      navigate(`/roadmap/${data.id}`);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const recentCourses = courses?.slice(0, 4) || [];
 
-  const currentPath = profile?.current_path || roadmaps?.[0]?.title || "Choose Your Path";
-  const currentPathDescription = roadmaps?.[0]?.description || "Start your journey today";
+  const currentPath = profile?.current_path || roadmaps?.[0]?.title || 'Choose Your Path';
+  const currentPathDescription = roadmaps?.[0]?.description || 'Start your journey today';
   const pathProgress = profile?.current_path_progress || 0;
-  const continueLink = profile?.current_roadmap_id 
-    ? `/roadmap/${profile.current_roadmap_id}` 
-    : "/roadmap";
+  const continueLink = profile?.current_roadmap_id
+    ? `/roadmap/${profile.current_roadmap_id}`
+    : '/roadmap';
 
   const level = profile?.level ?? 1;
   const xpToNext = profile?.xp_to_next_level ?? 1000;
@@ -47,13 +75,12 @@ export function Home() {
   const totalXp = progress?.total_xp ?? 0;
   const xpToNextLevel = progress?.xp_to_next_level ?? xpToNext;
   const currentLevelXp = progress?.current_level_xp ?? 0;
-  const progressPercentage = xpToNextLevel > 0 
-    ? Math.round(((totalXp - currentLevelXp) / xpToNextLevel) * 100)
-    : 0;
+  const progressPercentage =
+    xpToNextLevel > 0 ? Math.round(((totalXp - currentLevelXp) / xpToNextLevel) * 100) : 0;
 
   const getStatusBadge = (status: string) => {
     const statusLower = status.toLowerCase();
-    if (statusLower === "completed") {
+    if (statusLower === 'completed') {
       return (
         <span className="px-2 py-1 text-xs font-medium rounded-full bg-chart-2/20 text-chart-2 border border-chart-2/30">
           Completed
@@ -68,7 +95,7 @@ export function Home() {
   };
 
   const getCourseProgress = (course: { status: string; total_lessons: number }) => {
-    if (course.status.toLowerCase() === "completed") {
+    if (course.status.toLowerCase() === 'completed') {
       return { completed: course.total_lessons, percentage: 100 };
     }
     return { completed: 0, percentage: 0 };
@@ -84,21 +111,53 @@ export function Home() {
             <Trophy className="text-chart-1 w-8 h-8" />
             The Tavern
           </h1>
-          <p className="text-muted-foreground text-lg">Rest, review your stats, and prepare for your next quest.</p>
+          <p className="text-muted-foreground text-lg">
+            Rest, review your stats, and prepare for your next quest.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Create Custom Path Widget (replaces Current Quest widget if we want to show it, or we add it next to them) */}
+        <Card className="md:col-span-3 border-border bg-card/50 backdrop-blur-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <Sparkles className="text-primary w-5 h-5" />
+              Generate Custom Path
+            </CardTitle>
+            <CardDescription className="text-muted-foreground font-serif">
+              Enter a topic to generate an AI-driven roadmap tailored to your interests.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Input
+                placeholder="e.g. Machine Learning, Rust Programming..."
+                value={customTopic}
+                onChange={(e) => setCustomTopic(e.target.value)}
+                disabled={isGenerating}
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleGeneratePath();
+                }}
+              />
+              <Button
+                onClick={handleGeneratePath}
+                disabled={isGenerating || !customTopic.trim()}
+                className="whitespace-nowrap w-full sm:w-auto"
+              >
+                {isGenerating ? 'Generating...' : 'Generate Custom Path'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Current Quest Widget */}
         <Card className="md:col-span-2 border-border bg-card/50 backdrop-blur-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               <Compass className="text-primary" />
-              {profileLoading || roadmapsLoading ? (
-                <Skeleton className="h-6 w-48" />
-              ) : (
-                currentPath
-              )}
+              {profileLoading || roadmapsLoading ? <Skeleton className="h-6 w-48" /> : currentPath}
             </CardTitle>
             <CardDescription className="text-muted-foreground font-serif">
               {profileLoading || roadmapsLoading ? (
@@ -111,14 +170,22 @@ export function Home() {
           <CardContent>
             <div className="bg-background/80 p-5 rounded-sm border border-border flex justify-between items-center shadow-inner">
               <div className="space-y-1">
-                <p className="text-sm font-serif font-medium text-muted-foreground uppercase tracking-wider">Current Objective</p>
+                <p className="text-sm font-serif font-medium text-muted-foreground uppercase tracking-wider">
+                  Current Objective
+                </p>
                 <p className="font-bold text-foreground font-serif text-lg tracking-wide">
-                  {profileLoading ? <Skeleton className="h-6 w-32 inline-block" /> : "Complete basic training"}
+                  {profileLoading ? (
+                    <Skeleton className="h-6 w-32 inline-block" />
+                  ) : (
+                    'Complete basic training'
+                  )}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-primary font-serif">{pathProgress}%</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Path Progress</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">
+                  Path Progress
+                </p>
               </div>
             </div>
             <Button className="w-full mt-6 gap-2" size="lg" variant="default" asChild>
@@ -159,7 +226,7 @@ export function Home() {
                 {profileLoading ? <Skeleton className="h-5 w-8 inline-block" /> : questsCompleted}
               </span>
             </div>
-            
+
             <Button variant="outline" className="w-full mt-2" asChild>
               <Link to="/profile">View Full Character Sheet</Link>
             </Button>
@@ -180,7 +247,7 @@ export function Home() {
             </Button>
           )}
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {coursesLoading ? (
             [1, 2, 3, 4].map((i) => (
@@ -208,15 +275,17 @@ export function Home() {
                           {course.title}
                         </h4>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Progress</span>
-                          <span>{courseProgress.completed}/{course.total_lessons} lessons</span>
+                          <span>
+                            {courseProgress.completed}/{course.total_lessons} lessons
+                          </span>
                         </div>
                         <Progress value={courseProgress.percentage} className="h-2" />
                       </div>
-                      
+
                       <div className="flex items-center justify-between pt-2">
                         <span className="text-xs text-chart-2 font-medium">
                           {course.total_xp} XP
@@ -258,35 +327,43 @@ export function Home() {
             <BookOpen className="text-chart-1" />
             Grimoire (Recent Artifacts)
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {roadmapsLoading ? (
-              [1, 2, 3, 4].map((i) => (
-                <Card key={i} className="bg-card/40">
-                  <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                    <Skeleton className="w-12 h-12 rounded-full" />
-                    <div className="space-y-2 w-full">
-                      <Skeleton className="h-4 w-24 mx-auto" />
-                      <Skeleton className="h-3 w-16 mx-auto" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              roadmaps?.flatMap(r => r.courses || []).slice(0, 4).map((course) => (
-                <Card key={course.id} className="hover:border-primary/50 transition-colors cursor-pointer group bg-card/40">
-                  <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(0,0,0,0.5)] border border-border">
-                       <Scroll className="text-chart-1/70 w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">{course.title}</h4>
-                      <p className="text-xs text-muted-foreground/70 mt-1">{course.total_lessons} lessons • {course.total_xp} XP</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
+            {roadmapsLoading
+              ? [1, 2, 3, 4].map((i) => (
+                  <Card key={i} className="bg-card/40">
+                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                      <Skeleton className="w-12 h-12 rounded-full" />
+                      <div className="space-y-2 w-full">
+                        <Skeleton className="h-4 w-24 mx-auto" />
+                        <Skeleton className="h-3 w-16 mx-auto" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              : roadmaps
+                  ?.flatMap((r) => r.courses || [])
+                  .slice(0, 4)
+                  .map((course) => (
+                    <Card
+                      key={course.id}
+                      className="hover:border-primary/50 transition-colors cursor-pointer group bg-card/40"
+                    >
+                      <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(0,0,0,0.5)] border border-border">
+                          <Scroll className="text-chart-1/70 w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">
+                            {course.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground/70 mt-1">
+                            {course.total_lessons} lessons • {course.total_xp} XP
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
           </div>
         </>
       )}

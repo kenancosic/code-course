@@ -87,10 +87,10 @@ User Code ──► Monaco Editor ──► POST /api/practice/execute ──►
 
 ### State Management Strategy
 
-| Concern | Tool | Use Case |
-|---------|------|----------|
-| Server State | TanStack Query | API data, caching, background updates |
-| Client State | Zustand | UI state, theme, sidebar, notifications |
+| Concern      | Tool           | Use Case                                |
+| ------------ | -------------- | --------------------------------------- |
+| Server State | TanStack Query | API data, caching, background updates   |
+| Client State | Zustand        | UI state, theme, sidebar, notifications |
 
 ### Directory Structure
 
@@ -117,7 +117,7 @@ src/
 
 ```typescript
 // src/api/client.ts
-const BASE_URL = "/api";
+const BASE_URL = '/api';
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`);
@@ -127,8 +127,8 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new ApiError(res.status, await res.json());
@@ -142,14 +142,14 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
 // src/hooks/use-roadmaps.ts
 export function useRoadmaps() {
   return useQuery({
-    queryKey: ["roadmaps"],
+    queryKey: ['roadmaps'],
     queryFn: fetchRoadmaps,
   });
 }
 
 export function useRoadmap(pathId: string) {
   return useQuery({
-    queryKey: ["roadmaps", pathId],
+    queryKey: ['roadmaps', pathId],
     queryFn: () => fetchRoadmap(pathId),
     enabled: !!pathId,
   });
@@ -226,60 +226,90 @@ async def app_error_handler(request, exc):
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│ roadmap_paths   │     │ roadmap_nodes    │     │   courses       │
+│     topics      │◄────┤ roadmap_nodes    │     │ roadmap_paths   │
 ├─────────────────┤     ├──────────────────┤     ├─────────────────┤
-│ id (PK)         │◄────┤ path_id (FK)     │     │ id (PK)         │
-│ title           │     │ id (PK)          │────►│ roadmap_node_id │
-│ description     │     │ title            │     │ title           │
-│ icon            │     │ description      │     │ description     │
-│ colors          │     │ position_x       │     │ status          │
-│ is_locked       │     │ position_y       │     │ total_lessons   │
-└─────────────────┘     │ tier             │     │ total_xp        │
-                        └──────────────────┘     └────────┬────────┘
-                                                          │
-                              ┌───────────────────────────┘
-                              │
-                              ▼
-                        ┌──────────────────┐
-                        │     lessons      │
-                        ├──────────────────┤
-                        │ id (PK)          │
-                        │ course_id (FK)   │
-                        │ title            │
-                        │ content_markdown │
-                        │ sort_order       │
-                        │ xp_reward        │
-                        └────────┬─────────┘
-                                 │
-                                 │
-                                 ▼
+│ id (PK)         │────►│ topic_id (FK)    │────►│ id (PK)         │
+│ title           │     │ id (PK)          │◄────┤ title           │
+│ description     │     │ path_id (FK)     │     │ description     │
+│ ai_generated    │     │ position_x       │     │ icon            │
+│ keywords        │     │ position_y       │     │ colors          │
+└────────┬────────┘     │ tier             │     │ is_locked       │
+         │              │ status           │     │ is_custom       │
+         │              └──────────────────┘     └─────────────────┘
+         │
+         │       ┌───────────────────────────┐
+         │       │   topic_connections       │
+         │       ├───────────────────────────┤
+         │       │ id (PK)                   │
+         └──────►│ from_topic_id (FK)        │
+                 │ to_topic_id (FK)          │
+                 │ relationship_type         │
+                 └───────────────────────────┘
+         │
+         ▼
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│ user_profiles   │     │  user_progress   │     │  achievements   │
+│     courses     │────►│     lessons      │     │ user_profiles   │
 ├─────────────────┤     ├──────────────────┤     ├─────────────────┤
-│ id (PK)         │◄────┤ user_id          │────►│ id (PK)         │
-│ display_name    │     │ lesson_id (FK)   │     │ title           │
-│ avatar_seed     │     │ course_id (FK)   │     │ description     │
-│ total_xp        │     │ xp_earned        │     │ icon            │
-│ level           │     │ completed_at     │     │ category        │
-│ current_path_id │     └──────────────────┘     │ trigger_type    │
-└─────────────────┘                              └─────────────────┘
+│ id (PK)         │     │ id (PK)          │     │ id (PK)         │
+│ title           │     │ course_id (FK)   │     │ display_name    │
+│ description     │     │ title            │     │ avatar_seed     │
+│ topic_id (FK)   │     │ content_markdown │     │ total_xp        │
+│ status          │     │ task_type        │     │ level           │
+│ total_lessons   │     │ task_content     │     │ current_path_id │
+│ total_xp        │     │ sort_order       │     └────────┬────────┘
+└─────────────────┘     │ xp_reward        │              │
+                        └────────┬─────────┘              │
+                                 │                        │
+                                 ▼                        ▼
+                        ┌──────────────────┐     ┌─────────────────┐
+                        │  user_progress   │     │ user_achievements│
+                        ├──────────────────┤     ├─────────────────┤
+                        │ user_id (FK)     │     │ achievement_id  │
+                        │ lesson_id (FK)   │     │ unlocked_at     │
+                        │ course_id (FK)   │     └─────────────────┘
+                        │ xp_earned        │
+                        │ completed_at     │
+                        └──────────────────┘
 ```
 
 ### Table Summary
 
-| Table | Description |
-|-------|-------------|
-| `roadmap_paths` | Learning paths (Frontend, Backend, DevOps, etc.) |
-| `roadmap_nodes` | Individual topics within a path |
-| `roadmap_connections` | Connections between nodes |
-| `courses` | Generated courses from topics or PDFs |
-| `lessons` | Individual lessons within a course |
-| `user_profiles` | User stats and character data |
-| `user_progress` | Lesson completion tracking |
-| `achievements` | Achievement definitions |
-| `user_achievements` | Unlocked achievements |
-| `practice_sessions` | Saved code practice attempts |
-| `uploaded_pdfs` | PDF upload metadata |
+| Table                 | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| `topics`              | Central topic repository for learning content           |
+| `topic_connections`   | Relationships between topics (prerequisites, subtopics) |
+| `roadmap_paths`       | Learning paths (Frontend, Backend, DevOps, etc.)        |
+| `roadmap_nodes`       | Individual nodes within a path, linked to topics        |
+| `roadmap_connections` | Connections between nodes                               |
+| `courses`             | Generated courses from topics or PDFs                   |
+| `lessons`             | Individual lessons within a course (includes tasks)     |
+| `user_profiles`       | User stats and character data                           |
+| `user_progress`       | Lesson completion tracking                              |
+| `achievements`        | Achievement definitions                                 |
+| `user_achievements`   | Unlocked achievements                                   |
+| `practice_sessions`   | Saved code practice attempts                            |
+| `uploaded_pdfs`       | PDF upload metadata                                     |
+
+### Topic-Based Learning System
+
+The platform uses a flexible topic-based learning model:
+
+- **Topics** are the central content units, stored in the `topics` table
+- Topics can have relationships (prerequisites, subtopics) via `topic_connections`
+- **Multi-Topic Courses**: Users can select multiple subtopics when generating a course via `POST /api/courses/generate` with `topic_ids` array
+- **Dynamic Roadmaps**: Custom roadmap paths can be AI-generated for any topic via `POST /api/topics/generate-roadmap`
+
+### Lesson Tasks
+
+Each lesson includes an interactive task for skill assessment:
+
+| Task Type | Description                      |
+| --------- | -------------------------------- |
+| `quiz`    | Multiple-choice questions        |
+| `coding`  | Code writing challenges          |
+| `project` | Larger project-based assignments |
+
+Tasks are evaluated by AI via `POST /api/courses/{course_id}/lessons/{lesson_id}/evaluate`
 
 ## LLM Integration Architecture
 

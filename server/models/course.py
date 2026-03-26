@@ -10,13 +10,13 @@ class Course(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(150), nullable=False)
     description = Column(Text, nullable=True)
-    roadmap_node_id = Column(Integer, ForeignKey("roadmap_nodes.id"), nullable=False)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     status = Column(String(20), default="locked")
     total_lessons = Column(Integer, default=0)
     total_xp = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    roadmap_node = relationship("RoadmapNode", back_populates="courses")
+    topic = relationship("Topic", back_populates="courses")
     lessons = relationship("Lesson", back_populates="course", cascade="all, delete-orphan")
     progress_entries = relationship("UserProgress", back_populates="course")
 
@@ -28,6 +28,8 @@ class Lesson(Base):
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     title = Column(String(150), nullable=False)
     content_markdown = Column(Text, nullable=True)
+    task_type = Column(String(50), nullable=True)
+    task_content = Column(Text, nullable=True)
     sort_order = Column(Integer, default=0)
     xp_reward = Column(Integer, default=10)
 

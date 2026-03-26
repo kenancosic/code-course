@@ -3,12 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 export interface RoadmapNode {
   id: number;
   path_id: number;
-  title: string;
-  description: string | null;
+  topic_id: number;
+  status: string;
+  topic: {
+    id: number;
+    title: string;
+    description: string;
+  };
   position_x: number;
   position_y: number;
   tier: number;
-  topic_keywords: string | null;
 }
 
 export interface RoadmapConnection {
@@ -21,12 +25,14 @@ export interface RoadmapConnection {
 
 export interface Roadmap {
   id: number;
+  user_id: string;
   title: string;
   description: string | null;
   icon: string | null;
   colors: string | null;
   sort_order: number;
   is_locked: boolean;
+  is_custom: boolean;
   nodes: RoadmapNode[];
   connections: RoadmapConnection[];
 }

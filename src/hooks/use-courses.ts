@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+export type TaskType = 'code' | 'quiz' | 'project' | null;
+
 export interface CourseLesson {
   id: number;
   course_id: number;
@@ -7,12 +9,15 @@ export interface CourseLesson {
   content_markdown: string | null;
   sort_order: number;
   xp_reward: number;
+  task_type: TaskType;
+  task_content: string | null;
 }
 
 export interface Course {
   id: number;
   title: string;
   description: string | null;
+  topic_id: number;
   roadmap_node_id: number;
   status: string;
   total_lessons: number;
@@ -74,18 +79,56 @@ export function useDeleteCourse() {
   });
 }
 
+export interface GenerateCourseRequest {
+  topic_ids: number[];
+}
+
+export interface EvaluateLessonRequest {
+  course_id: string;
+  lesson_id: string;
+  answer: string;
+}
+
+export interface EvaluateLessonResponse {
+  is_correct: boolean;
+  feedback: string;
+  suggestions?: string[];
+  xp_earned: number;
+}
+
+const evaluateLesson = async (data: EvaluateLessonRequest): Promise<EvaluateLessonResponse> => {
+  const response = await fetch(
+    `/api/courses/${data.course_id}/lessons/${data.lesson_id}/evaluate`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answer: data.answer }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error('Failed to evaluate lesson');
+  }
+  return response.json();
+};
+
+export function useEvaluateLesson() {
+  return useMutation({
+    mutationFn: evaluateLesson,
+  });
+}
+
 /**
  * Start course generation via SSE stream.
  * Returns an object with event handlers.
  */
 export function generateCourseStream(
-  nodeId: number,
+  topicIds: number[],
   callbacks: {
     onStatus?: (data: Record<string, unknown>) => void;
     onChunk?: (data: Record<string, unknown>) => void;
     onComplete?: (data: Record<string, unknown>) => void;
     onError?: (data: Record<string, unknown>) => void;
-  },
+  }
 ): AbortController {
   const controller = new AbortController();
 
@@ -94,7 +137,7 @@ export function generateCourseStream(
       const response = await fetch('/api/courses/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roadmap_node_id: nodeId }),
+        body: JSON.stringify({ topic_ids: topicIds } as GenerateCourseRequest),
         signal: controller.signal,
       });
 

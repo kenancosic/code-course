@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 
 from sqlalchemy.orm import Session
 
-from server.models import Course, Lesson, RoadmapNode
+from server.models import Course, Lesson, Topic
 from server.llm.agents.course_pipeline import PipelineContext, run_pipeline
 from server.llm.streaming import sse_event
 
@@ -37,39 +37,49 @@ def delete_course(db: Session, course_id: int) -> bool:
 
 async def generate_course(
     db: Session,
-    node: RoadmapNode,
+    topics: list[Topic],
     model: str | None = None,
 ) -> AsyncGenerator[str, None]:
-    """Generate a full course from a roadmap node via the LLM pipeline.
+    """Generate a full course from topics via the LLM pipeline.
 
     This is an async generator that yields SSE events throughout
     the generation process. The final event contains the course_id.
 
     Args:
         db: Database session
-        node: The roadmap node to generate a course for
+        topics: The topics to generate a course for
         model: Optional model override
 
     Yields:
         SSE-formatted event strings
     """
-    # Parse keywords from the comma-separated string
-    keywords = [k.strip() for k in (node.topic_keywords or "").split(",") if k.strip()]
+    primary_topic = topics[0]
+    
+    # Parse keywords from all topics
+    keywords = set()
+    for topic in topics:
+        if topic.keywords:
+            keywords.update([k.strip() for k in topic.keywords.split(",") if k.strip()])
+    keywords = list(keywords)
+    
+    # Combined topic title and description
+    topic_title = " and ".join([t.title for t in topics])
+    topic_description = " ".join([t.description or t.title for t in topics])
 
-    # Build pipeline context from the roadmap node
+    # Build pipeline context
     ctx = PipelineContext(
-        topic=node.title,
-        description=node.description or node.title,
-        tier=node.tier or 1,
+        topic=topic_title,
+        description=topic_description,
+        tier=1,
         keywords=keywords,
         model=model,
     )
 
     # Create the course record in "generating" state
     course = Course(
-        title=node.title,  # Will be updated with LLM-generated title
-        description=node.description,
-        roadmap_node_id=node.id,
+        title=topic_title,  # Will be updated with LLM-generated title
+        description=topic_description,
+        topic_id=primary_topic.id,
         status="generating",
     )
     db.add(course)
@@ -96,6 +106,8 @@ async def generate_course(
                 course_id=course_id,
                 title=lesson_content.title,
                 content_markdown=lesson_content.content_markdown,
+                task_type=lesson_content.task_type,
+                task_content=lesson_content.task_content,
                 sort_order=lesson_content.index,
                 xp_reward=10 + (ctx.tier * 5),  # Scale XP by tier
             )
@@ -116,7 +128,7 @@ async def generate_course(
         })
 
     except Exception as e:
-        logger.error("Course generation failed for node %d: %s", node.id, str(e))
+        logger.error("Course generation failed for topics %s: %s", [t.id for t in topics], str(e))
         # Mark course as errored
         course = db.query(Course).filter(Course.id == course_id).first()
         if course:

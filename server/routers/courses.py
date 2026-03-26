@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from server.database import get_db
-from server.models import Course, RoadmapNode
-from server.schemas.course import CourseResponse, LessonResponse, GenerateCourseRequest
+from server.models import Course, Topic
+from server.schemas.course import CourseResponse, LessonResponse, GenerateCourseRequest, EvaluateTaskRequest
 from server.services import course_service
 from server.llm.streaming import sse_response
 
@@ -49,6 +49,58 @@ async def get_lesson(course_id: int, lesson_id: int, db: Session = Depends(get_d
     return lesson
 
 
+@router.post("/{course_id}/lessons/{lesson_id}/evaluate")
+async def evaluate_lesson_task(
+    course_id: int,
+    lesson_id: int,
+    request: EvaluateTaskRequest,
+    db: Session = Depends(get_db),
+):
+    """Evaluate a user's answer to a lesson task."""
+    from server.models import Lesson
+    from server.llm import client
+    from server.llm.prompts import evaluate
+    from server.config import get_settings
+
+    lesson = (
+        db.query(Lesson)
+        .filter(Lesson.id == lesson_id, Lesson.course_id == course_id)
+        .first()
+    )
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lesson {lesson_id} not found in course {course_id}",
+        )
+        
+    if not lesson.task_content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This lesson does not have a task to evaluate",
+        )
+
+    settings = get_settings()
+    messages = evaluate.build_messages(
+        task_content=lesson.task_content,
+        user_answer=request.answer,
+    )
+    
+    try:
+        result = await client.completion_json(
+            messages=messages,
+            model=settings.LLM_FAST_MODEL,
+        )
+        return {
+            "is_correct": result.get("is_correct", False),
+            "feedback": result.get("feedback", "Evaluation failed to return feedback."),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Evaluation failed: {str(e)}"
+        )
+
+
 @router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_course(course_id: int, db: Session = Depends(get_db)):
     """Delete a course and all its lessons."""
@@ -59,13 +111,12 @@ async def delete_course(course_id: int, db: Session = Depends(get_db)):
             detail=f"Course {course_id} not found",
         )
 
-
 @router.post("/generate")
 async def generate_course(
     request: GenerateCourseRequest,
     db: Session = Depends(get_db),
 ):
-    """Generate a course from a roadmap node.
+    """Generate a course from topics.
 
     Returns an SSE stream with generation progress and content chunks.
 
@@ -75,19 +126,28 @@ async def generate_course(
         - complete: Generation finished with course_id
         - error: Something went wrong
     """
-    # Validate the roadmap node exists
-    node = db.query(RoadmapNode).filter(RoadmapNode.id == request.roadmap_node_id).first()
-    if not node:
+    if not request.topic_ids:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Roadmap node {request.roadmap_node_id} not found",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one topic ID must be provided",
         )
 
-    # Check if a course is already being generated for this node
+    # Validate the topics exist
+    topics = db.query(Topic).filter(Topic.id.in_(request.topic_ids)).all()
+    if not topics or len(topics) != len(request.topic_ids):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or more topics not found",
+        )
+
+    # Use the first topic for course association
+    primary_topic_id = request.topic_ids[0]
+
+    # Check if a course is already being generated for this primary topic
     existing = (
         db.query(Course)
         .filter(
-            Course.roadmap_node_id == request.roadmap_node_id,
+            Course.topic_id == primary_topic_id,
             Course.status == "generating",
         )
         .first()
@@ -95,10 +155,10 @@ async def generate_course(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Course generation already in progress for node {request.roadmap_node_id}",
+            detail=f"Course generation already in progress for topic {primary_topic_id}",
         )
 
     # Return SSE stream
     return sse_response(
-        course_service.generate_course(db, node, model=request.model)
+        course_service.generate_course(db, topics, model=request.model)
     )

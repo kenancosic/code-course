@@ -13,6 +13,14 @@
       "parentBranch": "main",
       "createdAt": "2026-03-22T15:52:41.737Z",
       "remote": "origin"
+    },
+    "wt-1774387627727-1": {
+      "branch": "oval-polyester",
+      "path": "d:\\Projects\\code-course\\.kilo\\worktrees\\oval-polyester",
+      "parentBranch": "main",
+      "createdAt": "2026-03-24T21:27:07.727Z",
+      "remote": "origin",
+      "label": "Update backend for multi-topic courses and lesson tasks (@general subagent)"
     }
   },
   "sessions": {
@@ -39,8 +47,11 @@
     "ses_2e97fb727ffeOWsiU9SnWtSYpi": {
       "worktreeId": "wt-1774180847194-1",
       "createdAt": "2026-03-22T17:03:19.257Z"
+    },
+    "ses_2de63bdcdffe4U1oiJ2y9G9Y1S": {
+      "worktreeId": "wt-1774387627727-1",
+      "createdAt": "2026-03-24T21:27:10.757Z"
     }
   },
-  "sessionsCollapsed": true,
   "reviewDiffStyle": "split"
 }

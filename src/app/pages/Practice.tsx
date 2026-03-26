@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router";
-import Editor from "@monaco-editor/react";
-import { motion, AnimatePresence } from "motion/react";
-import confetti from "canvas-confetti";
-import { toast } from "sonner";
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router';
+import Editor from '@monaco-editor/react';
+import { motion, AnimatePresence } from 'motion/react';
+import confetti from 'canvas-confetti';
+import { toast } from 'sonner';
 import {
   Play,
   Check,
@@ -14,8 +14,6 @@ import {
   Trophy,
   Flame,
   Target,
-  Clock,
-  ChevronDown,
   ChevronRight,
   Filter,
   Search,
@@ -27,31 +25,31 @@ import {
   Sword,
   Shield,
   Crown,
-} from "lucide-react";
-import { Button } from "../components/ui/Button";
-import { Badge } from "../components/ui/badge";
-import { ScrollArea } from "../components/ui/scroll-area";
+} from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/badge';
+import { ScrollArea } from '../components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../components/ui/dialog";
+} from '../components/ui/dialog';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "../components/ui/accordion";
-import { Input } from "../components/ui/input";
+} from '../components/ui/accordion';
+import { Input } from '../components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from '../components/ui/select';
 import {
   type Challenge,
   type Difficulty,
@@ -61,8 +59,8 @@ import {
   getCompletedChallengeIds,
   markChallengeComplete,
   getChallengeProgress,
-} from "../../data/challenges";
-import { cn } from "../../lib/utils";
+} from '../../data/challenges';
+import { cn } from '../../lib/utils';
 
 // Test result type
 interface TestResult {
@@ -84,52 +82,52 @@ interface ExecutionResponse {
 
 // Session storage helpers
 const getSavedCode = (challengeId: string): string | null => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   return localStorage.getItem(`challenge_${challengeId}_code`);
 };
 
 const saveCode = (challengeId: string, code: string): void => {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   localStorage.setItem(`challenge_${challengeId}_code`, code);
 };
 
 const getHintsUsed = (challengeId: string): number => {
-  if (typeof window === "undefined") return 0;
-  return parseInt(localStorage.getItem(`challenge_${challengeId}_hints`) || "0");
+  if (typeof window === 'undefined') return 0;
+  return parseInt(localStorage.getItem(`challenge_${challengeId}_hints`) || '0');
 };
 
 const incrementHintsUsed = (challengeId: string): void => {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   const current = getHintsUsed(challengeId);
   localStorage.setItem(`challenge_${challengeId}_hints`, String(current + 1));
 };
 
 const getStreak = (): number => {
-  if (typeof window === "undefined") return 0;
-  return parseInt(localStorage.getItem("arenaStreak") || "0");
+  if (typeof window === 'undefined') return 0;
+  return parseInt(localStorage.getItem('arenaStreak') || '0');
 };
 
 const incrementStreak = (): void => {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   const current = getStreak();
-  localStorage.setItem("arenaStreak", String(current + 1));
+  localStorage.setItem('arenaStreak', String(current + 1));
 };
 
 const resetStreak = (): void => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("arenaStreak", "0");
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('arenaStreak', '0');
 };
 
 // XP Management
 const getTotalXP = (): number => {
-  if (typeof window === "undefined") return 0;
-  return parseInt(localStorage.getItem("totalXP") || "0");
+  if (typeof window === 'undefined') return 0;
+  return parseInt(localStorage.getItem('totalXP') || '0');
 };
 
 const addXP = (amount: number): void => {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   const current = getTotalXP();
-  localStorage.setItem("totalXP", String(current + amount));
+  localStorage.setItem('totalXP', String(current + amount));
 };
 
 // Difficulty colors and icons
@@ -138,73 +136,72 @@ const difficultyConfig: Record<
   { color: string; bg: string; border: string; icon: typeof Shield }
 > = {
   easy: {
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
     icon: Shield,
   },
   medium: {
-    color: "text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/30',
     icon: Sword,
   },
   hard: {
-    color: "text-rose-400",
-    bg: "bg-rose-500/10",
-    border: "border-rose-500/30",
+    color: 'text-rose-400',
+    bg: 'bg-rose-500/10',
+    border: 'border-rose-500/30',
     icon: Crown,
   },
 };
 
 // Language icons
 const languageIcons: Record<Language, string> = {
-  javascript: "⚡",
-  python: "🐍",
+  javascript: '⚡',
+  python: '🐍',
 };
 
 // Mock API execution
-const executeCode = async (
-  code: string,
-  challenge: Challenge
-): Promise<ExecutionResponse> => {
+const executeCode = async (code: string, challenge: Challenge): Promise<ExecutionResponse> => {
   // Simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
   try {
     // Create a safe execution environment
     const testResults: TestResult[] = [];
-    let stdout = "";
-    let stderr = "";
+    let stdout = '';
+    let stderr = '';
+
+    // Find the function name from the challenge
+    const functionMatch = challenge.starter_code.match(/function\s+(\w+)\s*\(/);
+    const functionName = functionMatch?.[1];
+
+    if (!functionName) {
+      throw new Error('Could not determine function name from starter code.');
+    }
 
     // Execute the user's code in a sandboxed way
     const sandbox = new Function(
-      "console",
+      'console',
       `
       ${code}
-      return { twoSum, reverseString, isValid, fib, merge };
+      return typeof ${functionName} !== 'undefined' ? { ${functionName} } : {};
     `
     );
 
     const consoleMock = {
       log: (...args: unknown[]) => {
-        stdout += args.map((a) => String(a)).join(" ") + "\n";
+        stdout += args.map((a) => String(a)).join(' ') + '\n';
       },
       error: (...args: unknown[]) => {
-        stderr += args.map((a) => String(a)).join(" ") + "\n";
+        stderr += args.map((a) => String(a)).join(' ') + '\n';
       },
     };
 
     const functions = sandbox(consoleMock) as Record<string, unknown>;
 
-    // Find the function name from the challenge
-    const functionMatch = challenge.starter_code.match(
-      /function\s+(\w+)\s*\(/,
-    );
-    const functionName = functionMatch?.[1];
-
-    if (!functionName || !functions[functionName]) {
-      throw new Error("Function not found. Did you delete the function?");
+    if (!functions[functionName]) {
+      throw new Error('Function not found. Did you delete the function?');
     }
 
     const userFunction = functions[functionName] as (...args: unknown[]) => unknown;
@@ -237,19 +234,19 @@ const executeCode = async (
     }
 
     return {
-      stdout: stdout || "> Code executed successfully",
+      stdout: stdout || '> Code executed successfully',
       stderr,
       testResults,
       allPassed: testResults.every((r) => r.passed),
     };
   } catch (error) {
     return {
-      stdout: "",
+      stdout: '',
       stderr: String(error),
       testResults: challenge.test_cases.map((tc) => ({
         input: tc.input,
         expected: tc.expected_output,
-        actual: "Error",
+        actual: 'Error',
         passed: false,
         isHidden: tc.isHidden || false,
       })),
@@ -261,32 +258,26 @@ const executeCode = async (
 
 export function Practice() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedChallenge, setSelectedChallenge] = useState<Challenge>(
-    challenges[0]
-  );
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge>(challenges[0]);
   const [code, setCode] = useState<string>(challenges[0].starter_code);
-  const [output, setOutput] = useState<string>("> Awaiting invocation...");
+  const [output, setOutput] = useState<string>('> Awaiting invocation...');
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showHint, setShowHint] = useState<number | null>(null);
+  // Hint display state (setter is used elsewhere)
   const [hintsRevealed, setHintsRevealed] = useState<number>(0);
   const [isBrowserOpen, setIsBrowserOpen] = useState(false);
-  const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | "all">(
-    "all"
-  );
-  const [languageFilter, setLanguageFilter] = useState<Language | "all">(
-    "all"
-  );
-  const [searchQuery, setSearchQuery] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
+  const [languageFilter, setLanguageFilter] = useState<Language | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [completedChallenges, setCompletedChallenges] = useState<string[]>([]);
   const [totalXP, setTotalXP] = useState(0);
   const [streak, setStreak] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  const editorRef = useRef<Parameters<
-    NonNullable<React.ComponentProps<typeof Editor>["onMount"]>
-  >[0] | null>(null);
+  const editorRef = useRef<
+    Parameters<NonNullable<React.ComponentProps<typeof Editor>['onMount']>>[0] | null
+  >(null);
 
   // Load saved state
   useEffect(() => {
@@ -297,7 +288,7 @@ export function Practice() {
 
   // Handle challenge selection from URL
   useEffect(() => {
-    const challengeId = searchParams.get("challenge");
+    const challengeId = searchParams.get('challenge');
     if (challengeId) {
       const challenge = getChallengeById(challengeId);
       if (challenge) {
@@ -305,7 +296,7 @@ export function Practice() {
         const saved = getSavedCode(challengeId);
         setCode(saved || challenge.starter_code);
         setHintsRevealed(getHintsUsed(challengeId));
-        setOutput("> Awaiting invocation...");
+        setOutput('> Awaiting invocation...');
         setTestResults([]);
       }
     }
@@ -319,20 +310,18 @@ export function Practice() {
     return () => clearTimeout(timeout);
   }, [code, selectedChallenge.id]);
 
-  const handleEditorMount: React.ComponentProps<typeof Editor>["onMount"] = (
-    editor
-  ) => {
+  const handleEditorMount: React.ComponentProps<typeof Editor>['onMount'] = (editor) => {
     editorRef.current = editor;
   };
 
   const handleRunCode = async () => {
     setIsRunning(true);
-    setOutput("> Casting spell...");
+    setOutput('> Casting spell...');
     setTestResults([]);
 
     try {
       const result = await executeCode(code, selectedChallenge);
-      setOutput(result.stdout || result.stderr || "> Execution complete");
+      setOutput(result.stdout || result.stderr || '> Execution complete');
       setTestResults(result.testResults);
     } catch (error) {
       setOutput(`> Error: ${String(error)}`);
@@ -343,11 +332,11 @@ export function Practice() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    setOutput("> Submitting solution...");
+    setOutput('> Submitting solution...');
 
     try {
       const result = await executeCode(code, selectedChallenge);
-      setOutput(result.stdout || result.stderr || "> Submission complete");
+      setOutput(result.stdout || result.stderr || '> Submission complete');
       setTestResults(result.testResults);
 
       if (result.allPassed) {
@@ -373,7 +362,7 @@ export function Practice() {
           particleCount: 150,
           spread: 70,
           origin: { y: 0.6 },
-          colors: ["#34d399", "#fbbf24", "#a78bfa", "#f472b6"],
+          colors: ['#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
         });
 
         toast.success(
@@ -390,11 +379,11 @@ export function Practice() {
       } else {
         resetStreak();
         setStreak(0);
-        toast.error("Some tests failed. Keep trying, warrior!");
+        toast.error('Some tests failed. Keep trying, warrior!');
       }
     } catch (error) {
       setOutput(`> Error: ${String(error)}`);
-      toast.error("Submission failed. Check your code.");
+      toast.error('Submission failed. Check your code.');
     } finally {
       setIsSubmitting(false);
     }
@@ -407,15 +396,15 @@ export function Practice() {
       setShowHint(hintsRevealed);
       toast.info(`Hint ${hintsRevealed + 1} revealed! (-10 XP potential)`);
     } else {
-      toast.info("All hints already revealed!");
+      toast.info('All hints already revealed!');
     }
   };
 
   const handleResetCode = () => {
     setCode(selectedChallenge.starter_code);
-    setOutput("> Awaiting invocation...");
+    setOutput('> Awaiting invocation...');
     setTestResults([]);
-    toast.info("Code reset to starter template");
+    toast.info('Code reset to starter template');
   };
 
   const handleSelectChallenge = (challenge: Challenge) => {
@@ -424,15 +413,11 @@ export function Practice() {
   };
 
   const filteredChallenges = challenges.filter((c) => {
-    const matchesDifficulty =
-      difficultyFilter === "all" || c.difficulty === difficultyFilter;
-    const matchesLanguage =
-      languageFilter === "all" || c.language === languageFilter;
+    const matchesDifficulty = difficultyFilter === 'all' || c.difficulty === difficultyFilter;
+    const matchesLanguage = languageFilter === 'all' || c.language === languageFilter;
     const matchesSearch =
       c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.tags?.some((t) =>
-        t.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      c.tags?.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesDifficulty && matchesLanguage && matchesSearch;
   });
 
@@ -441,33 +426,27 @@ export function Practice() {
   const progress = getChallengeProgress();
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col gap-4 animate-in zoom-in-95 duration-500">
+    <div className="min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-8rem)] flex flex-col gap-4 animate-in zoom-in-95 duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 shrink-0">
+        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
           <div>
             <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
               <Sword className="text-amber-400 w-8 h-8" />
               The Arena
             </h1>
-            <p className="text-slate-400">
-              Prove your worth in the proving grounds.
-            </p>
+            <p className="text-slate-400">Prove your worth in the proving grounds.</p>
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-3 ml-8">
+          <div className="flex flex-wrap items-center gap-3 ml-0 sm:ml-4 lg:ml-8">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 border border-purple-500/30 rounded-lg">
               <Sparkles className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-medium text-purple-300">
-                {totalXP} XP
-              </span>
+              <span className="text-sm font-medium text-purple-300">{totalXP} XP</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 rounded-lg">
               <Flame className="w-4 h-4 text-orange-400" />
-              <span className="text-sm font-medium text-orange-300">
-                {streak} Streak
-              </span>
+              <span className="text-sm font-medium text-orange-300">{streak} Streak</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
               <Trophy className="w-4 h-4 text-emerald-400" />
@@ -478,7 +457,7 @@ export function Practice() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
           <Dialog open={isBrowserOpen} onOpenChange={setIsBrowserOpen}>
             <DialogTrigger asChild>
               <Button
@@ -510,9 +489,7 @@ export function Practice() {
                 </div>
                 <Select
                   value={difficultyFilter}
-                  onValueChange={(v) =>
-                    setDifficultyFilter(v as Difficulty | "all")
-                  }
+                  onValueChange={(v) => setDifficultyFilter(v as Difficulty | 'all')}
                 >
                   <SelectTrigger className="w-32 bg-slate-800 border-slate-700 text-slate-200">
                     <Filter className="w-4 h-4 mr-2" />
@@ -527,9 +504,7 @@ export function Practice() {
                 </Select>
                 <Select
                   value={languageFilter}
-                  onValueChange={(v) =>
-                    setLanguageFilter(v as Language | "all")
-                  }
+                  onValueChange={(v) => setLanguageFilter(v as Language | 'all')}
                 >
                   <SelectTrigger className="w-32 bg-slate-800 border-slate-700 text-slate-200">
                     <Code2 className="w-4 h-4 mr-2" />
@@ -547,37 +522,31 @@ export function Practice() {
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
                   {filteredChallenges.map((challenge) => {
-                    const isCompleted = completedChallenges.includes(
-                      challenge.id
-                    );
+                    const isCompleted = completedChallenges.includes(challenge.id);
                     const diffConfig = difficultyConfig[challenge.difficulty];
                     return (
                       <button
                         key={challenge.id}
                         onClick={() => handleSelectChallenge(challenge)}
                         className={cn(
-                          "w-full text-left p-4 rounded-lg border transition-all duration-200 flex items-center gap-4",
+                          'w-full text-left p-4 rounded-lg border transition-all duration-200 flex items-center gap-4',
                           selectedChallenge.id === challenge.id
-                            ? "bg-slate-800 border-purple-500/50 ring-1 ring-purple-500/50"
-                            : "bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-slate-600"
+                            ? 'bg-slate-800 border-purple-500/50 ring-1 ring-purple-500/50'
+                            : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-slate-600'
                         )}
                       >
                         <div
                           className={cn(
-                            "w-10 h-10 rounded-lg flex items-center justify-center",
+                            'w-10 h-10 rounded-lg flex items-center justify-center',
                             diffConfig.bg,
                             diffConfig.border
                           )}
                         >
-                          <diffConfig.icon
-                            className={cn("w-5 h-5", diffConfig.color)}
-                          />
+                          <diffConfig.icon className={cn('w-5 h-5', diffConfig.color)} />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-slate-200">
-                              {challenge.title}
-                            </h3>
+                            <h3 className="font-semibold text-slate-200">{challenge.title}</h3>
                             {isCompleted && (
                               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                                 <Check className="w-3 h-3 mr-1" /> Complete
@@ -585,20 +554,12 @@ export function Practice() {
                             )}
                           </div>
                           <div className="flex items-center gap-3 mt-1">
-                            <span
-                              className={cn(
-                                "text-xs font-medium",
-                                diffConfig.color
-                              )}
-                            >
+                            <span className={cn('text-xs font-medium', diffConfig.color)}>
                               {challenge.difficulty}
                             </span>
+                            <span className="text-xs text-slate-500">{challenge.xp_reward} XP</span>
                             <span className="text-xs text-slate-500">
-                              {challenge.xp_reward} XP
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {languageIcons[challenge.language]}{" "}
-                              {challenge.language}
+                              {languageIcons[challenge.language]} {challenge.language}
                             </span>
                           </div>
                         </div>
@@ -648,7 +609,7 @@ export function Practice() {
             className="gap-2 text-emerald-400 hover:bg-emerald-950/30 hover:border-emerald-800 border-slate-700"
           >
             <Play className="w-4 h-4 fill-current" />
-            {isRunning ? "Casting..." : "Run Code"}
+            {isRunning ? 'Casting...' : 'Run Code'}
           </Button>
           <Button
             variant="fantasy"
@@ -664,7 +625,7 @@ export function Practice() {
             ) : (
               <>
                 <Target className="w-4 h-4" />
-                {isSubmitting ? "Submitting..." : "Submit"}
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </>
             )}
           </Button>
@@ -672,9 +633,9 @@ export function Practice() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:overflow-hidden min-h-0 pb-4">
         {/* Left Panel - Challenge Description */}
-        <div className="w-2/5 flex flex-col gap-4 min-h-0">
+        <div className="w-full lg:w-2/5 flex flex-col gap-4 min-h-[400px] lg:min-h-0">
           <ScrollArea className="flex-1 bg-slate-900/60 rounded-xl border border-slate-800 backdrop-blur-md">
             <div className="p-6">
               {/* Challenge Header */}
@@ -686,7 +647,7 @@ export function Practice() {
                     </span>
                     <span
                       className={cn(
-                        "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border flex items-center gap-1",
+                        'px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border flex items-center gap-1',
                         difficultyConfig[selectedChallenge.difficulty].bg,
                         difficultyConfig[selectedChallenge.difficulty].border,
                         difficultyConfig[selectedChallenge.difficulty].color
@@ -701,9 +662,7 @@ export function Practice() {
                       </Badge>
                     )}
                   </div>
-                  <h2 className="text-2xl font-bold text-white">
-                    {selectedChallenge.title}
-                  </h2>
+                  <h2 className="text-2xl font-bold text-white">{selectedChallenge.title}</h2>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-1 text-amber-400">
@@ -711,15 +670,14 @@ export function Practice() {
                     <span className="font-bold">{selectedChallenge.xp_reward} XP</span>
                   </div>
                   <span className="text-xs text-slate-500">
-                    {languageIcons[selectedChallenge.language]}{" "}
-                    {selectedChallenge.language}
+                    {languageIcons[selectedChallenge.language]} {selectedChallenge.language}
                   </span>
                 </div>
               </div>
 
               {/* Description */}
               <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed mb-6">
-                {selectedChallenge.description.split("\n\n").map((para, i) => (
+                {selectedChallenge.description.split('\n\n').map((para, i) => (
                   <p key={i} className="mb-4 text-sm">
                     {para}
                   </p>
@@ -733,10 +691,7 @@ export function Practice() {
                 </h3>
                 <div className="space-y-3">
                   {selectedChallenge.examples.map((example, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-950 rounded-lg border border-slate-800 p-3"
-                    >
+                    <div key={idx} className="bg-slate-950 rounded-lg border border-slate-800 p-3">
                       <div className="space-y-2 text-sm font-mono">
                         <div className="flex gap-2">
                           <span className="text-slate-500">Input:</span>
@@ -749,9 +704,7 @@ export function Practice() {
                         {example.explanation && (
                           <div className="flex gap-2">
                             <span className="text-slate-500">Explain:</span>
-                            <span className="text-slate-400">
-                              {example.explanation}
-                            </span>
+                            <span className="text-slate-400">{example.explanation}</span>
                           </div>
                         )}
                       </div>
@@ -785,10 +738,10 @@ export function Practice() {
                       <div
                         key={idx}
                         className={cn(
-                          "flex items-center gap-3 p-2 rounded-lg border text-sm",
+                          'flex items-center gap-3 p-2 rounded-lg border text-sm',
                           result.passed
-                            ? "bg-emerald-500/10 border-emerald-500/30"
-                            : "bg-rose-500/10 border-rose-500/30"
+                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                            : 'bg-rose-500/10 border-rose-500/30'
                         )}
                       >
                         {result.passed ? (
@@ -797,7 +750,7 @@ export function Practice() {
                           <X className="w-4 h-4 text-rose-400 shrink-0" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <span className="text-slate-400">Test {idx + 1}:</span>{" "}
+                          <span className="text-slate-400">Test {idx + 1}:</span>{' '}
                           {result.isHidden ? (
                             <span className="text-slate-500 italic">Hidden</span>
                           ) : (
@@ -823,11 +776,10 @@ export function Practice() {
                   <AccordionTrigger className="text-sm font-semibold text-slate-400 hover:text-slate-200 py-3">
                     <span className="flex items-center gap-2">
                       <Lightbulb className="w-4 h-4 text-amber-400" />
-                      Hints from the Archmage{" "}
+                      Hints from the Archmage{' '}
                       {hintsRevealed > 0 && (
                         <Badge className="ml-2 bg-amber-500/20 text-amber-400 text-xs">
-                          {hintsRevealed}/{selectedChallenge.hints.length}{" "}
-                          Revealed
+                          {hintsRevealed}/{selectedChallenge.hints.length} Revealed
                         </Badge>
                       )}
                     </span>
@@ -838,10 +790,10 @@ export function Practice() {
                         <div
                           key={idx}
                           className={cn(
-                            "p-3 rounded-lg border transition-all duration-300",
+                            'p-3 rounded-lg border transition-all duration-300',
                             idx < hintsRevealed
-                              ? "bg-amber-500/10 border-amber-500/30"
-                              : "bg-slate-800/50 border-slate-700 blur-sm select-none"
+                              ? 'bg-amber-500/10 border-amber-500/30'
+                              : 'bg-slate-800/50 border-slate-700 blur-sm select-none'
                           )}
                         >
                           <div className="flex items-start gap-2">
@@ -872,7 +824,7 @@ export function Practice() {
         </div>
 
         {/* Right Panel - Editor & Output */}
-        <div className="w-3/5 flex flex-col gap-4 min-h-0">
+        <div className="w-full lg:w-3/5 flex flex-col gap-4 min-h-[500px] lg:min-h-0">
           {/* Monaco Editor */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl border border-slate-800 bg-[#1e1e1e]">
             <div className="h-10 bg-[#2d2d2d] flex items-center px-4 border-b border-black shrink-0">
@@ -883,7 +835,7 @@ export function Practice() {
               </div>
               <span className="mx-auto text-xs text-slate-400 font-mono flex items-center gap-2">
                 <Code2 className="w-3 h-3" />
-                spellbook.{selectedChallenge.language === "javascript" ? "js" : "py"}
+                spellbook.{selectedChallenge.language === 'javascript' ? 'js' : 'py'}
               </span>
             </div>
             <div className="flex-1 relative">
@@ -891,23 +843,23 @@ export function Practice() {
                 height="100%"
                 language={selectedChallenge.language}
                 value={code}
-                onChange={(value) => setCode(value || "")}
+                onChange={(value) => setCode(value || '')}
                 onMount={handleEditorMount}
                 theme="vs-dark"
                 options={{
                   minimap: { enabled: false },
                   fontSize: 14,
-                  lineNumbers: "on",
+                  lineNumbers: 'on',
                   roundedSelection: false,
                   scrollBeyondLastLine: false,
                   automaticLayout: true,
                   padding: { top: 16 },
-                  fontFamily: "JetBrains Mono, Fira Code, monospace",
+                  fontFamily: 'JetBrains Mono, Fira Code, monospace',
                   fontLigatures: true,
                   formatOnPaste: true,
                   formatOnType: true,
                   tabSize: 2,
-                  wordWrap: "on",
+                  wordWrap: 'on',
                 }}
               />
             </div>
@@ -922,7 +874,7 @@ export function Practice() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setOutput("> Awaiting invocation...")}
+                onClick={() => setOutput('> Awaiting invocation...')}
                 className="h-6 text-xs text-slate-500 hover:text-white px-2"
               >
                 Clear
@@ -931,12 +883,12 @@ export function Practice() {
             <ScrollArea className="flex-1 p-4">
               <pre
                 className={cn(
-                  "text-sm whitespace-pre-wrap",
-                  output.includes("Error")
-                    ? "text-rose-400"
-                    : output.includes("✓")
-                      ? "text-emerald-400"
-                      : "text-slate-300"
+                  'text-sm whitespace-pre-wrap',
+                  output.includes('Error')
+                    ? 'text-rose-400'
+                    : output.includes('✓')
+                      ? 'text-emerald-400'
+                      : 'text-slate-300'
                 )}
               >
                 {output}
@@ -962,15 +914,11 @@ export function Practice() {
               >
                 <Trophy className="w-16 h-16 text-amber-400 mx-auto mb-4" />
               </motion.div>
-              <h3 className="text-3xl font-bold text-white mb-2">
-                Challenge Conquered!
-              </h3>
+              <h3 className="text-3xl font-bold text-white mb-2">Challenge Conquered!</h3>
               <p className="text-slate-400 mb-4">
-                You earned{" "}
+                You earned{' '}
                 <span className="text-amber-400 font-bold">
-                  {selectedChallenge.xp_reward -
-                    Math.min(hintsRevealed * 10, 30)}{" "}
-                  XP
+                  {selectedChallenge.xp_reward - Math.min(hintsRevealed * 10, 30)} XP
                 </span>
               </p>
               <div className="flex items-center justify-center gap-4 text-sm">
@@ -978,10 +926,9 @@ export function Practice() {
                   <Flame className="w-4 h-4" /> {streak + 1} Streak
                 </span>
                 <span className="flex items-center gap-1 text-purple-400">
-                  <Sparkles className="w-4 h-4" /> {totalXP +
-                    selectedChallenge.xp_reward -
-                    Math.min(hintsRevealed * 10, 30)}{" "}
-                  Total XP
+                  <Sparkles className="w-4 h-4" />{' '}
+                  {totalXP + selectedChallenge.xp_reward - Math.min(hintsRevealed * 10, 30)} Total
+                  XP
                 </span>
               </div>
             </div>

@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, Link } from "react-router";
-import Editor from "@monaco-editor/react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import confetti from "canvas-confetti";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, Link } from 'react-router';
+import Editor from '@monaco-editor/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import confetti from 'canvas-confetti';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
   BookOpen,
@@ -25,17 +25,21 @@ import {
   RotateCcw,
   Check,
   Loader2,
-} from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Skeleton } from "../components/ui/skeleton";
-import { Progress } from "../components/ui/progress";
-import { Badge } from "../components/ui/badge";
-import { Separator } from "../components/ui/separator";
-import { ScrollArea } from "../components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { cn } from "../../lib/utils";
-import { useCourse, useCourseProgress, useCompleteLesson } from "../../hooks";
-import type { CourseLesson } from "../../hooks";
+} from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Skeleton } from '../components/ui/skeleton';
+import { Progress } from '../components/ui/progress';
+import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { ScrollArea } from '../components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
+import { cn } from '../../lib/utils';
+import { useCourse, useCourseProgress, useCompleteLesson, useEvaluateLesson } from '../../hooks';
+import type { CourseLesson, TaskType } from '../../hooks';
+import { Textarea } from '../components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
+import { Label } from '../components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 
 // Types
 interface CodeExample {
@@ -49,7 +53,7 @@ interface ParsedContent {
   sections: {
     title: string;
     content: string;
-    type: "concept" | "example" | "exercise" | "callout";
+    type: 'concept' | 'example' | 'exercise' | 'callout';
   }[];
   codeExamples: CodeExample[];
   estimatedMinutes: number;
@@ -77,27 +81,28 @@ function parseLessonContent(markdown: string): ParsedContent {
   const estimatedMinutes = Math.max(1, Math.ceil(wordCount / 200));
 
   // Parse sections (split by headings)
-  const sections: ParsedContent["sections"] = [];
-  const lines = markdown.split("\n");
-  let currentSection: ParsedContent["sections"][0] | null = null;
+  const sections: ParsedContent['sections'] = [];
+  const lines = markdown.split('\n');
+  let currentSection: ParsedContent['sections'][0] | null = null;
   let currentContent: string[] = [];
 
   for (const line of lines) {
-    if (line.startsWith("## ") || line.startsWith("### ")) {
+    if (line.startsWith('## ') || line.startsWith('### ')) {
       if (currentSection) {
-        currentSection.content = currentContent.join("\n");
+        currentSection.content = currentContent.join('\n');
         sections.push(currentSection);
       }
       currentSection = {
-        title: line.replace(/^#+\s*/, ""),
-        content: "",
-        type: line.includes("Example") || line.includes("Code")
-          ? "example"
-          : line.includes("Exercise") || line.includes("Practice")
-          ? "exercise"
-          : line.includes("Note") || line.includes("Tip") || line.includes("Warning")
-          ? "callout"
-          : "concept",
+        title: line.replace(/^#+\s*/, ''),
+        content: '',
+        type:
+          line.includes('Example') || line.includes('Code')
+            ? 'example'
+            : line.includes('Exercise') || line.includes('Practice')
+              ? 'exercise'
+              : line.includes('Note') || line.includes('Tip') || line.includes('Warning')
+                ? 'callout'
+                : 'concept',
       };
       currentContent = [];
     } else if (currentSection) {
@@ -106,16 +111,16 @@ function parseLessonContent(markdown: string): ParsedContent {
   }
 
   if (currentSection) {
-    currentSection.content = currentContent.join("\n");
+    currentSection.content = currentContent.join('\n');
     sections.push(currentSection);
   }
 
   // If no sections were parsed, create one from the whole content
   if (sections.length === 0) {
     sections.push({
-      title: "Lesson Content",
+      title: 'Lesson Content',
       content: markdown,
-      type: "concept",
+      type: 'concept',
     });
   }
 
@@ -127,7 +132,7 @@ function triggerCelebration() {
   const duration = 3000;
   const end = Date.now() + duration;
 
-  const colors = ["#a855f7", "#6366f1", "#22c55e", "#f59e0b"];
+  const colors = ['#a855f7', '#6366f1', '#22c55e', '#f59e0b'];
 
   (function frame() {
     confetti({
@@ -161,40 +166,39 @@ interface CodePlaygroundProps {
 
 function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygroundProps) {
   const [code, setCode] = useState(initialCode);
-  const [output, setOutput] = useState<string>("");
+  const [output, setOutput] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState<"output" | "tests">("output");
+  const [activeTab, setActiveTab] = useState<'output' | 'tests'>('output');
 
   const handleRun = useCallback(async () => {
     setIsRunning(true);
-    setActiveTab("output");
+    setActiveTab('output');
 
     // Simulate code execution (in real app, this would call a backend API)
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    let simulatedOutput = "";
+    void ('' as string); // Simulated output placeholder
 
-    if (language === "javascript" || language === "js") {
+    if (language === 'javascript' || language === 'js') {
       try {
         // Create a safe evaluation environment
         const consoleOutput: string[] = [];
         const mockConsole = {
-          log: (...args: unknown[]) => consoleOutput.push(args.map(String).join(" ")),
-          error: (...args: unknown[]) => consoleOutput.push("Error: " + args.map(String).join(" ")),
+          log: (...args: unknown[]) => consoleOutput.push(args.map(String).join(' ')),
+          error: (...args: unknown[]) => consoleOutput.push('Error: ' + args.map(String).join(' ')),
         };
 
-         
-        const result = new Function("console", code)(mockConsole);
+        const result = new Function('console', code)(mockConsole);
         if (result !== undefined) {
           consoleOutput.push(String(result));
         }
 
-        simulatedOutput = consoleOutput.join("\n") || "Code executed successfully (no output)";
+        simulatedOutput = consoleOutput.join('\n') || 'Code executed successfully (no output)';
       } catch (err) {
         simulatedOutput = `Error: ${err instanceof Error ? err.message : String(err)}`;
       }
-    } else if (language === "python" || language === "py") {
-      simulatedOutput = `[Python simulation]\nCode would execute here...\n\n${code.split("\n").length} lines of Python code`;
+    } else if (language === 'python' || language === 'py') {
+      simulatedOutput = `[Python simulation]\nCode would execute here...\n\n${code.split('\n').length} lines of Python code`;
     } else {
       simulatedOutput = `[${language} code]\nExecution simulation for ${language}\n\nCode length: ${code.length} characters`;
     }
@@ -206,7 +210,7 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
 
   const handleReset = () => {
     setCode(initialCode);
-    setOutput("");
+    setOutput('');
   };
 
   return (
@@ -250,14 +254,14 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
       <div className="flex-1 min-h-0">
         <Editor
           height="100%"
-          language={language === "js" ? "javascript" : language}
+          language={language === 'js' ? 'javascript' : language}
           value={code}
-          onChange={(value) => setCode(value || "")}
+          onChange={(value) => setCode(value || '')}
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
             fontSize: 14,
-            lineNumbers: "on",
+            lineNumbers: 'on',
             roundedSelection: false,
             scrollBeyondLastLine: false,
             automaticLayout: true,
@@ -270,20 +274,24 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
       <div className="h-40 border-t border-border bg-card/50">
         <div className="flex items-center gap-4 px-3 py-2 border-b border-border">
           <button
-            onClick={() => setActiveTab("output")}
+            onClick={() => setActiveTab('output')}
             className={cn(
-              "text-xs font-medium transition-colors",
-              activeTab === "output" ? "text-chart-2" : "text-muted-foreground/70 hover:text-foreground"
+              'text-xs font-medium transition-colors',
+              activeTab === 'output'
+                ? 'text-chart-2'
+                : 'text-muted-foreground/70 hover:text-foreground'
             )}
           >
             Output
           </button>
           {testCases && testCases.length > 0 && (
             <button
-              onClick={() => setActiveTab("tests")}
+              onClick={() => setActiveTab('tests')}
               className={cn(
-                "text-xs font-medium transition-colors",
-                activeTab === "tests" ? "text-chart-2" : "text-muted-foreground/70 hover:text-foreground"
+                'text-xs font-medium transition-colors',
+                activeTab === 'tests'
+                  ? 'text-chart-2'
+                  : 'text-muted-foreground/70 hover:text-foreground'
               )}
             >
               Tests ({testCases.length})
@@ -292,11 +300,15 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
         </div>
         <ScrollArea className="h-[calc(100%-37px)]">
           <div className="p-3">
-            {activeTab === "output" ? (
+            {activeTab === 'output' ? (
               output ? (
-                <pre className="text-sm font-mono text-foreground whitespace-pre-wrap">{output}</pre>
+                <pre className="text-sm font-mono text-foreground whitespace-pre-wrap">
+                  {output}
+                </pre>
               ) : (
-                <p className="text-sm text-muted-foreground/70 italic">Click &quot;Run&quot; to see output</p>
+                <p className="text-sm text-muted-foreground/70 italic">
+                  Click &quot;Run&quot; to see output
+                </p>
               )
             ) : (
               <div className="space-y-2">
@@ -310,6 +322,186 @@ function CodePlayground({ initialCode, language, onRun, testCases }: CodePlaygro
             )}
           </div>
         </ScrollArea>
+      </div>
+    </div>
+  );
+}
+
+// Task Section Component
+interface TaskSectionProps {
+  taskType: TaskType;
+  taskContent: string | null;
+  answer: string;
+  onAnswerChange: (value: string) => void;
+  quizAnswer: string;
+  onQuizAnswerChange: (value: string) => void;
+  onEvaluate: () => void;
+  onReset: () => void;
+  isEvaluating: boolean;
+  evaluationResult: {
+    is_correct: boolean;
+    feedback: string;
+    suggestions?: string[];
+    xp_earned: number;
+  } | null;
+}
+
+function TaskSection({
+  taskType,
+  taskContent,
+  answer,
+  onAnswerChange,
+  quizAnswer,
+  onQuizAnswerChange,
+  onEvaluate,
+  onReset,
+  isEvaluating,
+  evaluationResult,
+}: TaskSectionProps) {
+  if (!taskType || !taskContent) return null;
+
+  const quizOptions =
+    taskType === 'quiz' ? taskContent.split('\n').filter((line) => line.match(/^[A-D][).\s]/)) : [];
+
+  return (
+    <div className="mt-8 border border-border rounded-lg bg-card/50 overflow-hidden">
+      <div className="px-4 py-3 bg-primary/10 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold text-foreground">
+            {taskType === 'code' && 'Coding Exercise'}
+            {taskType === 'quiz' && 'Knowledge Check'}
+            {taskType === 'project' && 'Project Task'}
+          </h3>
+        </div>
+        <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+          {taskType.toUpperCase()}
+        </Badge>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* Task Description */}
+        <div className="prose prose-invert prose-sm max-w-none">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {taskType === 'quiz'
+              ? taskContent
+                  .split('\n')
+                  .filter((line) => !line.match(/^[A-D][).\s]/))
+                  .join('\n')
+              : taskContent}
+          </ReactMarkdown>
+        </div>
+
+        {/* Answer Input */}
+        {!evaluationResult && (
+          <div className="space-y-3">
+            {taskType === 'quiz' && (
+              <RadioGroup
+                value={quizAnswer}
+                onValueChange={onQuizAnswerChange}
+                className="space-y-2"
+              >
+                {quizOptions.map((option, i) => {
+                  const value = option.match(/^[A-D]/)?.[0] || String(i);
+                  return (
+                    <div key={i} className="flex items-center space-x-2">
+                      <RadioGroupItem value={value} id={`option-${i}`} />
+                      <Label htmlFor={`option-${i}`} className="text-foreground cursor-pointer">
+                        {option}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </RadioGroup>
+            )}
+
+            {(taskType === 'code' || taskType === 'project') && (
+              <Textarea
+                value={answer}
+                onChange={(e) => onAnswerChange(e.target.value)}
+                placeholder={
+                  taskType === 'code' ? 'Enter your code here...' : 'Describe your solution...'
+                }
+                className="min-h-[150px] font-mono text-sm bg-background border-border"
+              />
+            )}
+
+            <Button
+              onClick={onEvaluate}
+              disabled={isEvaluating || (!answer && !quizAnswer)}
+              className="w-full bg-gradient-to-r from-chart-2 to-chart-2/80 hover:from-chart-2/90 hover:to-chart-2/70 text-foreground"
+            >
+              {isEvaluating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Evaluating...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Submit Answer
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Evaluation Result */}
+        {evaluationResult && (
+          <div className="space-y-4">
+            <Alert
+              className={
+                evaluationResult.is_correct
+                  ? 'border-emerald-500/50 bg-emerald-500/10'
+                  : 'border-amber-500/50 bg-amber-500/10'
+              }
+            >
+              <AlertTitle
+                className={evaluationResult.is_correct ? 'text-emerald-400' : 'text-amber-400'}
+              >
+                {evaluationResult.is_correct ? (
+                  <span className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" /> Correct!
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5" /> Needs Improvement
+                  </span>
+                )}
+              </AlertTitle>
+              <AlertDescription className="text-foreground mt-2">
+                {evaluationResult.feedback}
+              </AlertDescription>
+            </Alert>
+
+            {evaluationResult.suggestions && evaluationResult.suggestions.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-primary" />
+                  Suggestions
+                </h4>
+                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                  {evaluationResult.suggestions.map((suggestion, i) => (
+                    <li key={i}>{suggestion}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {evaluationResult.is_correct && (
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                <Trophy className="w-5 h-5" />+{evaluationResult.xp_earned} XP Earned
+              </div>
+            )}
+
+            {!evaluationResult.is_correct && (
+              <Button onClick={onReset} variant="outline" className="w-full border-border">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -342,9 +534,7 @@ function LessonContent({ content, onTryIt }: LessonContentProps) {
           h3: ({ children }) => (
             <h3 className="text-lg font-medium text-foreground mt-6 mb-3">{children}</h3>
           ),
-          p: ({ children }) => (
-            <p className="text-foreground leading-relaxed mb-4">{children}</p>
-          ),
+          p: ({ children }) => <p className="text-foreground leading-relaxed mb-4">{children}</p>,
           ul: ({ children }) => (
             <ul className="list-disc list-inside space-y-2 text-foreground mb-4 ml-2">
               {children}
@@ -366,14 +556,16 @@ function LessonContent({ content, onTryIt }: LessonContentProps) {
           pre: ({ children }) => {
             // Extract code from pre/code block
             const codeElement = children as React.ReactElement;
-            const code = codeElement?.props?.children?.toString() || "";
-            const className = codeElement?.props?.className || "";
-            const language = className.replace("language-", "").split(" ")[0] || "javascript";
+            const code = codeElement?.props?.children?.toString() || '';
+            const className = codeElement?.props?.className || '';
+            const language = className.replace('language-', '').split(' ')[0] || 'javascript';
 
             return (
               <div className="my-6 rounded-lg overflow-hidden border border-border">
                 <div className="flex items-center justify-between px-3 py-2 bg-background border-b border-border">
-                  <span className="text-xs font-medium text-muted-foreground/70 uppercase">{language}</span>
+                  <span className="text-xs font-medium text-muted-foreground/70 uppercase">
+                    {language}
+                  </span>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -406,16 +598,28 @@ function LessonContent({ content, onTryIt }: LessonContentProps) {
 // Main CourseView Component
 export function CourseView() {
   const { courseId } = useParams<{ courseId: string }>();
-  const { data: course, isLoading: courseLoading, error } = useCourse(courseId || "");
-  const { data: progress } = useCourseProgress(courseId || "");
+  const { data: course, isLoading: courseLoading, error } = useCourse(courseId || '');
+  const { data: progress } = useCourseProgress(courseId || '');
   const completeLesson = useCompleteLesson();
+  const evaluateLesson = useEvaluateLesson();
 
   const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
-  const [playgroundCode, setPlaygroundCode] = useState<string>("");
-  const [playgroundLanguage, setPlaygroundLanguage] = useState<string>("javascript");
+  const [playgroundCode, setPlaygroundCode] = useState<string>('');
+  const [playgroundLanguage, setPlaygroundLanguage] = useState<string>('javascript');
   const [isCompleting, setIsCompleting] = useState(false);
   const [showXpAnimation, setShowXpAnimation] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
+
+  // Task evaluation state
+  const [taskAnswer, setTaskAnswer] = useState<string>('');
+  const [quizAnswer, setQuizAnswer] = useState<string>('');
+  const [evaluationResult, setEvaluationResult] = useState<{
+    is_correct: boolean;
+    feedback: string;
+    suggestions?: string[];
+    xp_earned: number;
+  } | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
 
   const sortedLessons = useMemo(
     () => (course ? [...course.lessons].sort((a, b) => a.sort_order - b.sort_order) : []),
@@ -457,7 +661,7 @@ export function CourseView() {
           setPlaygroundLanguage(parsed.codeExamples[0].language);
         } else {
           setPlaygroundCode("// Write your code here\nconsole.log('Hello, World!');");
-          setPlaygroundLanguage("javascript");
+          setPlaygroundLanguage('javascript');
         }
       }
     },
@@ -485,6 +689,41 @@ export function CourseView() {
       setIsCompleting(false);
     }
   }, [activeLesson, courseId, completeLesson, parsedContent.estimatedMinutes]);
+
+  const handleEvaluate = useCallback(async () => {
+    if (!activeLesson || !courseId) return;
+
+    setIsEvaluating(true);
+    setEvaluationResult(null);
+
+    try {
+      const answer = activeLesson.task_type === 'quiz' ? quizAnswer : taskAnswer;
+      const result = await evaluateLesson.mutateAsync({
+        course_id: courseId,
+        lesson_id: String(activeLesson.id),
+        answer,
+      });
+
+      setEvaluationResult(result);
+      if (result.is_correct) {
+        setXpEarned(result.xp_earned);
+        triggerCelebration();
+      }
+    } finally {
+      setIsEvaluating(false);
+    }
+  }, [activeLesson, courseId, taskAnswer, quizAnswer, evaluateLesson]);
+
+  const resetEvaluation = useCallback(() => {
+    setEvaluationResult(null);
+    setTaskAnswer('');
+    setQuizAnswer('');
+  }, []);
+
+  // Reset task state when lesson changes
+  useEffect(() => {
+    resetEvaluation();
+  }, [activeLesson?.id, resetEvaluation]);
 
   const currentIndex = activeLesson ? sortedLessons.findIndex((l) => l.id === activeLesson.id) : -1;
   const hasPrevious = currentIndex > 0;
@@ -576,7 +815,12 @@ export function CourseView() {
             {/* Course Info & Progress */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="text-muted-foreground hover:text-foreground"
+                >
                   <Link to="/roadmap">
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Back
@@ -590,8 +834,7 @@ export function CourseView() {
                       {completedLessons}/{totalLessons} lessons
                     </span>
                     <span className="flex items-center gap-1">
-                      <Flame className="w-4 h-4 text-orange-400" />
-                      5 day streak
+                      <Flame className="w-4 h-4 text-orange-400" />5 day streak
                     </span>
                   </div>
                 </div>
@@ -638,11 +881,11 @@ export function CourseView() {
                         <button
                           onClick={() => handleLessonChange(lesson.id)}
                           className={cn(
-                            "w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all",
+                            'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
                             isActive
-                              ? "bg-primary/20 border border-primary/30"
-                              : "hover:bg-secondary/50 border border-transparent",
-                            isCompleted && !isActive && "opacity-70"
+                              ? 'bg-primary/20 border border-primary/30'
+                              : 'hover:bg-secondary/50 border border-transparent',
+                            isCompleted && !isActive && 'opacity-70'
                           )}
                         >
                           <div className="flex flex-col items-center gap-1 shrink-0 mt-0.5">
@@ -658,8 +901,8 @@ export function CourseView() {
                             {index < sortedLessons.length - 1 && (
                               <div
                                 className={cn(
-                                  "w-0.5 h-full min-h-[20px]",
-                                  isCompleted ? "bg-chart-2/80/30" : "bg-secondary"
+                                  'w-0.5 h-full min-h-[20px]',
+                                  isCompleted ? 'bg-chart-2/80/30' : 'bg-secondary'
                                 )}
                               />
                             )}
@@ -667,8 +910,8 @@ export function CourseView() {
                           <div className="flex-1 min-w-0">
                             <p
                               className={cn(
-                                "font-medium text-sm",
-                                isActive ? "text-foreground" : "text-foreground"
+                                'font-medium text-sm',
+                                isActive ? 'text-foreground' : 'text-foreground'
                               )}
                             >
                               {index + 1}. {lesson.title}
@@ -734,6 +977,20 @@ export function CourseView() {
                       </div>
                     )}
 
+                    {/* Task Section */}
+                    <TaskSection
+                      taskType={activeLesson.task_type}
+                      taskContent={activeLesson.task_content}
+                      answer={taskAnswer}
+                      onAnswerChange={setTaskAnswer}
+                      quizAnswer={quizAnswer}
+                      onQuizAnswerChange={setQuizAnswer}
+                      onEvaluate={handleEvaluate}
+                      onReset={resetEvaluation}
+                      isEvaluating={isEvaluating}
+                      evaluationResult={evaluationResult}
+                    />
+
                     {/* Navigation Footer */}
                     <div className="flex items-center justify-between pt-8 mt-8 border-t border-border">
                       <Button
@@ -748,7 +1005,10 @@ export function CourseView() {
 
                       <Button
                         onClick={handleMarkComplete}
-                        disabled={isCompleting}
+                        disabled={
+                          isCompleting ||
+                          (!!activeLesson.task_type && !evaluationResult?.is_correct)
+                        }
                         className="bg-gradient-to-r from-chart-2 to-chart-2/80 hover:from-chart-2/90 hover:to-chart-2/70 text-foreground px-6"
                       >
                         {isCompleting ? (
@@ -759,7 +1019,9 @@ export function CourseView() {
                         ) : (
                           <>
                             <Check className="w-4 h-4 mr-2" />
-                            Mark Complete
+                            {activeLesson.task_type && !evaluationResult?.is_correct
+                              ? 'Complete Task First'
+                              : 'Mark Complete'}
                           </>
                         )}
                       </Button>
@@ -797,7 +1059,9 @@ export function CourseView() {
                 </div>
                 <div className="flex-1 min-h-0">
                   <CodePlayground
-                    initialCode={playgroundCode || "// Write your code here\nconsole.log('Hello, World!');"}
+                    initialCode={
+                      playgroundCode || "// Write your code here\nconsole.log('Hello, World!');"
+                    }
                     language={playgroundLanguage}
                   />
                 </div>

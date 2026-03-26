@@ -14,7 +14,7 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let errorData: { code?: string; message?: string; details?: Record<string, unknown> } = {};
+    let errorData: { code?: string; message?: string; details?: Record<string, unknown> };
     
     try {
       errorData = await response.json();

@@ -2,11 +2,19 @@
 
 An AI-powered interactive coding course platform with D&D gamification. Learn to code through epic quests, earn XP, level up your character, and master programming with AI-generated courses.
 
+**Key Features:**
+
+- **Topic-Based Learning**: Select multiple related subtopics to generate custom courses tailored to your learning goals
+- **AI-Generated Roadmaps**: Create dynamic learning paths for any topic with AI-suggested subtopics
+- **Interactive Lesson Tasks**: Each lesson includes quizzes, coding challenges, or projects with AI-powered evaluation
+- **D&D Gamification**: Earn XP, unlock achievements, and level up your character as you progress
+
 Inspired by [boot.dev](https://boot.dev) and [roadmap.sh](https://roadmap.sh).
 
 ## Tech Stack Overview
 
 ### Frontend
+
 - **React 18** - UI framework
 - **TypeScript** - Type safety
 - **Vite** - Build tool and dev server
@@ -18,6 +26,7 @@ Inspired by [boot.dev](https://boot.dev) and [roadmap.sh](https://roadmap.sh).
 - **shadcn/ui** - UI components
 
 ### Backend
+
 - **FastAPI** - Python web framework
 - **SQLAlchemy** - ORM
 - **Alembic** - Database migrations
@@ -154,8 +163,11 @@ code-course/
 │   ├── config.py                 # Settings
 │   ├── database.py               # SQLAlchemy setup
 │   ├── routers/                  # API routes
-│   │   └── roadmaps.py
+│   │   ├── roadmaps.py
+│   │   ├── topics.py
+│   │   └── courses.py
 │   ├── models/                   # ORM models
+│   │   ├── topic.py
 │   │   ├── roadmap.py
 │   │   ├── course.py
 │   │   └── progress.py
@@ -175,37 +187,37 @@ code-course/
 
 ### Frontend Scripts
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start development server |
-| `pnpm build` | Build for production |
+| Command      | Description              |
+| ------------ | ------------------------ |
+| `pnpm dev`   | Start development server |
+| `pnpm build` | Build for production     |
 
 ### Backend Scripts
 
-| Command | Description |
-|---------|-------------|
-| `uvicorn main:app --reload` | Start dev server with hot reload |
-| `alembic upgrade head` | Run database migrations |
-| `alembic revision --autogenerate -m "msg"` | Create new migration |
+| Command                                    | Description                      |
+| ------------------------------------------ | -------------------------------- |
+| `uvicorn main:app --reload`                | Start dev server with hot reload |
+| `alembic upgrade head`                     | Run database migrations          |
+| `alembic revision --autogenerate -m "msg"` | Create new migration             |
 
 ## Environment Variables
 
 ### Frontend (.env)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_USE_MOCK_DATA` | Use mock data instead of API | `true` |
-| `VITE_API_BASE_URL` | API base URL | `/api` |
+| Variable             | Description                  | Default |
+| -------------------- | ---------------------------- | ------- |
+| `VITE_USE_MOCK_DATA` | Use mock data instead of API | `true`  |
+| `VITE_API_BASE_URL`  | API base URL                 | `/api`  |
 
 ### Backend (server/.env)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | SQLite database URL | `sqlite:///./mythiccode.db` |
-| `OPENROUTER_API_KEY` | OpenRouter API key | `None` |
-| `LLM_DEFAULT_MODEL` | Default LLM model | `anthropic/claude-3.5-sonnet` |
-| `LLM_FAST_MODEL` | Fast/cheap LLM model | `google/gemini-flash-1.5` |
-| `DEBUG` | Enable debug mode | `false` |
+| Variable             | Description          | Default                       |
+| -------------------- | -------------------- | ----------------------------- |
+| `DATABASE_URL`       | SQLite database URL  | `sqlite:///./mythiccode.db`   |
+| `OPENROUTER_API_KEY` | OpenRouter API key   | `None`                        |
+| `LLM_DEFAULT_MODEL`  | Default LLM model    | `anthropic/claude-3.5-sonnet` |
+| `LLM_FAST_MODEL`     | Fast/cheap LLM model | `google/gemini-flash-1.5`     |
+| `DEBUG`              | Enable debug mode    | `false`                       |
 
 ## Documentation
 

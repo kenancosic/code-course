@@ -18,6 +18,7 @@ Currently, the API uses a single implicit user (local-only). Authentication will
 Check if the API is running.
 
 **Response:**
+
 ```json
 {
   "status": "healthy"
@@ -33,6 +34,7 @@ Check if the API is running.
 List all published roadmap paths.
 
 **Response:**
+
 ```json
 [
   {
@@ -52,9 +54,11 @@ List all published roadmap paths.
 Get a single roadmap path with all nodes and connections.
 
 **Parameters:**
+
 - `path_id` (integer) - Roadmap path ID
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -86,6 +90,69 @@ Get a single roadmap path with all nodes and connections.
 }
 ```
 
+#### GET `/api/topics/{topic_id}`
+
+Get a single topic by ID with its details.
+
+**Parameters:**
+
+- `topic_id` (integer) - Topic ID
+
+**Response:**
+
+```json
+{
+  "id": 1,
+  "title": "Python Basics",
+  "description": "Introduction to Python programming",
+  "ai_generated": false,
+  "keywords": "python, programming, basics"
+}
+```
+
+#### POST `/api/topics/generate-roadmap`
+
+Generate a custom roadmap path for a topic with AI-generated subtopics.
+
+**Request:**
+
+```json
+{
+  "topic": "Machine Learning"
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": 5,
+  "title": "Machine Learning",
+  "description": "AI-generated roadmap for Machine Learning",
+  "icon": "Star",
+  "colors": "from-indigo-500 to-purple-500",
+  "is_custom": true,
+  "nodes": [
+    {
+      "id": 12,
+      "topic_id": 1,
+      "tier": 1,
+      "position_x": 0,
+      "position_y": 0,
+      "status": "unlocked"
+    }
+  ],
+  "connections": [
+    {
+      "id": 8,
+      "from_node_id": 12,
+      "to_node_id": 13,
+      "connection_type": "default"
+    }
+  ]
+}
+```
+
 ---
 
 ### Courses
@@ -95,6 +162,7 @@ Get a single roadmap path with all nodes and connections.
 List all generated courses.
 
 **Response:**
+
 ```json
 [
   {
@@ -114,9 +182,11 @@ List all generated courses.
 Get a course with lesson list.
 
 **Parameters:**
+
 - `course_id` (integer) - Course ID
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -143,16 +213,19 @@ Get a course with lesson list.
 Trigger course generation from a topic. Returns SSE stream.
 
 **Request:**
+
 ```json
 {
-  "topic": "CSS Enchantments",
-  "roadmap_path_id": "frontend",
-  "roadmap_node_id": "css-basics",
+  "topic_ids": [1, 2, 3],
   "model": "anthropic/claude-sonnet-4-20250514"
 }
 ```
 
+- `topic_ids` (array of integers, required) - One or more topic IDs to include in the course
+- `model` (string, optional) - LLM model to use for generation
+
 **SSE Events:**
+
 ```
 event: status
 data: {"stage": "outline", "message": "Generating course outline..."}
@@ -169,6 +242,7 @@ data: {"course_id": 1, "total_lessons": 5}
 Delete a generated course.
 
 **Parameters:**
+
 - `course_id` (integer) - Course ID
 
 **Response:** `204 No Content`
@@ -182,18 +256,48 @@ Delete a generated course.
 Get full lesson content.
 
 **Parameters:**
+
 - `course_id` (integer) - Course ID
 - `lesson_id` (integer) - Lesson ID
 
 **Response:**
+
 ```json
 {
   "id": 1,
   "course_id": 1,
   "title": "CSS Selectors",
-  "content": "# CSS Selectors\n\nIn the realm of styling...",
-  "order_index": 0,
-  "duration_minutes": 15
+  "content_markdown": "# CSS Selectors\n\nIn the realm of styling...",
+  "task_type": "coding",
+  "task_content": "Write a CSS selector that targets all paragraphs with class 'highlight' and makes them yellow.",
+  "sort_order": 0,
+  "xp_reward": 10
+}
+```
+
+#### POST `/api/courses/{course_id}/lessons/{lesson_id}/evaluate`
+
+Evaluate a user's answer to a lesson task using AI.
+
+**Parameters:**
+
+- `course_id` (integer) - Course ID
+- `lesson_id` (integer) - Lesson ID
+
+**Request:**
+
+```json
+{
+  "answer": "p.highlight { color: yellow; }"
+}
+```
+
+**Response:**
+
+```json
+{
+  "is_correct": true,
+  "feedback": "Correct! You've successfully targeted paragraphs with the 'highlight' class. Note that `color: yellow` changes text color; for background you'd use `background-color: yellow`."
 }
 ```
 
@@ -206,6 +310,7 @@ Get full lesson content.
 Mark lesson complete, award XP.
 
 **Request:**
+
 ```json
 {
   "lesson_id": 1,
@@ -215,6 +320,7 @@ Mark lesson complete, award XP.
 ```
 
 **Response:**
+
 ```json
 {
   "xp_earned": 150,
@@ -232,6 +338,7 @@ Mark lesson complete, award XP.
 Get overall progress summary.
 
 **Response:**
+
 ```json
 {
   "total_lessons_completed": 42,
@@ -247,6 +354,7 @@ Get overall progress summary.
 Get progress for a specific roadmap.
 
 **Response:**
+
 ```json
 {
   "path_id": 1,
@@ -265,26 +373,24 @@ Get progress for a specific roadmap.
 Execute code in sandbox.
 
 **Request:**
+
 ```json
 {
   "code": "function add(a, b) { return a + b; }\nconsole.log(add(2, 3));",
   "language": "javascript",
-  "test_cases": [
-    { "input": "2, 3", "expected_output": "5" }
-  ]
+  "test_cases": [{ "input": "2, 3", "expected_output": "5" }]
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
   "stdout": "5\n",
   "stderr": "",
   "exit_code": 0,
-  "test_results": [
-    { "passed": true, "input": "2, 3", "expected": "5", "actual": "5" }
-  ]
+  "test_results": [{ "passed": true, "input": "2, 3", "expected": "5", "actual": "5" }]
 }
 ```
 
@@ -293,6 +399,7 @@ Execute code in sandbox.
 LLM-evaluate code solution.
 
 **Request:**
+
 ```json
 {
   "code": "function fibonacci(n) { ... }",
@@ -303,6 +410,7 @@ LLM-evaluate code solution.
 ```
 
 **Response:**
+
 ```json
 {
   "score": 85,
@@ -321,6 +429,7 @@ LLM-evaluate code solution.
 Get full user profile.
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -342,6 +451,7 @@ Get full user profile.
 Update profile.
 
 **Request:**
+
 ```json
 {
   "display_name": "Lady Coder",
@@ -356,6 +466,7 @@ Update profile.
 List all achievements with unlock status.
 
 **Response:**
+
 ```json
 [
   {
@@ -378,9 +489,11 @@ List all achievements with unlock status.
 Upload PDF file.
 
 **Request:** Multipart form data
+
 - `file` - PDF file (max 50MB)
 
 **Response:**
+
 ```json
 {
   "id": "uuid-here",
@@ -395,9 +508,11 @@ Upload PDF file.
 Process uploaded PDF (SSE stream).
 
 **Parameters:**
+
 - `pdf_id` (string) - PDF ID
 
 **SSE Events:**
+
 ```
 event: status
 data: {"stage": "extraction", "message": "Extracting text..."}
@@ -424,30 +539,31 @@ data: {"course_id": 1, "title": "Course from PDF"}
 
 ### HTTP Status Codes
 
-| Code | Meaning | Common Causes |
-|------|---------|---------------|
-| 200 | OK | Successful GET/PUT |
-| 201 | Created | Successful POST |
-| 204 | No Content | Successful DELETE |
-| 400 | Bad Request | Invalid input data |
-| 404 | Not Found | Resource doesn't exist |
-| 422 | Validation Error | Pydantic validation failed |
-| 500 | Server Error | Internal server error |
+| Code | Meaning          | Common Causes              |
+| ---- | ---------------- | -------------------------- |
+| 200  | OK               | Successful GET/PUT         |
+| 201  | Created          | Successful POST            |
+| 204  | No Content       | Successful DELETE          |
+| 400  | Bad Request      | Invalid input data         |
+| 404  | Not Found        | Resource doesn't exist     |
+| 422  | Validation Error | Pydantic validation failed |
+| 500  | Server Error     | Internal server error      |
 
 ### Common Error Codes
 
-| Code | Description |
-|------|-------------|
-| `RESOURCE_NOT_FOUND` | Requested resource doesn't exist |
-| `VALIDATION_ERROR` | Input validation failed |
-| `LLM_ERROR` | LLM API error |
-| `EXECUTION_TIMEOUT` | Code execution timed out |
-| `EXECUTION_ERROR` | Code execution failed |
-| `PDF_PROCESSING_ERROR` | PDF processing failed |
+| Code                   | Description                      |
+| ---------------------- | -------------------------------- |
+| `RESOURCE_NOT_FOUND`   | Requested resource doesn't exist |
+| `VALIDATION_ERROR`     | Input validation failed          |
+| `LLM_ERROR`            | LLM API error                    |
+| `EXECUTION_TIMEOUT`    | Code execution timed out         |
+| `EXECUTION_ERROR`      | Code execution failed            |
+| `PDF_PROCESSING_ERROR` | PDF processing failed            |
 
 ### Example Error Responses
 
 **404 Not Found:**
+
 ```json
 {
   "error": "RESOURCE_NOT_FOUND",
@@ -456,6 +572,7 @@ data: {"course_id": 1, "title": "Course from PDF"}
 ```
 
 **422 Validation Error:**
+
 ```json
 {
   "error": "VALIDATION_ERROR",
@@ -470,6 +587,7 @@ data: {"course_id": 1, "title": "Course from PDF"}
 ```
 
 **500 Server Error:**
+
 ```json
 {
   "error": "INTERNAL_ERROR",

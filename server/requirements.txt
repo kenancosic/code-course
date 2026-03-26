@@ -1,17 +1,19 @@
 # FastAPI and server framework
-fastapi>=0.115.0
-uvicorn[standard]>=0.34.0
+fastapi[standard]>=0.135.0
+uvicorn[standard]>=0.40.0
 
 # Database
-sqlalchemy>=2.0.0
-alembic>=1.14.0
+sqlalchemy>=2.0.48
+alembic>=1.15.0
 
 # Data validation and settings
-pydantic>=2.10.0
-pydantic-settings>=2.7.0
+pydantic>=2.11.0
+pydantic-settings>=2.13.0
 
 # LLM integration
-litellm>=1.59.0
+# WARNING: Pin to <=1.82.6 due to supply chain compromise (March 2026)
+# LiteLLM 1.82.7 and 1.82.8 contain credential-stealing malware
+litellm>=1.59.0,<1.82.7
 
 # PDF processing
 pymupdf>=1.25.0
@@ -23,18 +25,18 @@ httpx>=0.28.0
 python-dotenv>=1.0.0
 
 # Code execution sandbox
-restrictedpython>=7.0
+restrictedpython>=8.0
 
 # Async support
-anyio>=4.8.0
+anyio>=4.9.0
 
 # Type hints
-typing-extensions>=4.12.0
+typing-extensions>=4.13.0
 
 # Development dependencies (optional)
 pytest>=8.3.0
 pytest-asyncio>=0.25.0
 pytest-cov>=6.0.0
-black>=24.10.0
-ruff>=0.9.0
-mypy>=1.14.0
+black>=25.0.0
+ruff>=0.11.0
+mypy>=1.15.0

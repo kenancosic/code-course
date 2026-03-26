@@ -1,109 +1,159 @@
-"""Seed script to populate database with roadmap data from JSON files."""
+"""Seed script to populate database with roadmap data."""
 import os
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import json
-from pathlib import Path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from server.database import Base
-from server.models import RoadmapPath, RoadmapNode, RoadmapConnection
+from server.models.roadmap import RoadmapPath, RoadmapNode, RoadmapConnection
+from server.models.topic import Topic, TopicConnection
 from server.models.progress import UserProfile
 
+def create_topic_with_subtopics(db, main_title, subtopics):
+    # Check if main topic exists
+    main_topic = db.query(Topic).filter(Topic.title == main_title).first()
+    if not main_topic:
+        main_topic = Topic(title=main_title, description=f"Learn {main_title}")
+        db.add(main_topic)
+        db.flush()
 
-def load_json_data(filename: str) -> dict:
-    """Load JSON data from the data directory."""
-    data_path = Path(__file__).parent / "data" / filename
-    with open(data_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def seed_roadmap(db, data: dict):
-    """Seed a single roadmap path with its nodes and connections."""
-    path_data = data["path"]
-    
-    # Create or update path
-    path = db.query(RoadmapPath).filter(RoadmapPath.id == path_data["id"]).first()
-    if path:
-        path.title = path_data["title"]
-        path.description = path_data.get("description")
-        path.icon = path_data.get("icon")
-        path.colors = path_data.get("colors")
-        path.sort_order = path_data.get("sort_order", 0)
-        path.is_locked = path_data.get("is_locked", False)
-    else:
-        path = RoadmapPath(
-            id=path_data["id"],
-            title=path_data["title"],
-            description=path_data.get("description"),
-            icon=path_data.get("icon"),
-            colors=path_data.get("colors"),
-            sort_order=path_data.get("sort_order", 0),
-            is_locked=path_data.get("is_locked", False),
-        )
-        db.add(path)
-    
-    db.flush()  # Ensure path.id is available
-    
-    # Create or update nodes
-    node_id_map = {}  # Map old IDs to database IDs
-    for node_data in data["nodes"]:
-        node = db.query(RoadmapNode).filter(
-            RoadmapNode.id == node_data["id"]
+    for sub_title in subtopics:
+        sub_topic = db.query(Topic).filter(Topic.title == sub_title).first()
+        if not sub_topic:
+            sub_topic = Topic(title=sub_title, description=f"Subtopic: {sub_title}")
+            db.add(sub_topic)
+            db.flush()
+        
+        # Check connection
+        conn = db.query(TopicConnection).filter(
+            TopicConnection.from_topic_id == main_topic.id,
+            TopicConnection.to_topic_id == sub_topic.id,
+            TopicConnection.relationship_type == "subtopic"
         ).first()
-        
-        if node:
-            node.path_id = path.id
-            node.title = node_data["title"]
-            node.description = node_data.get("description")
-            node.position_x = node_data.get("position_x", 0)
-            node.position_y = node_data.get("position_y", 0)
-            node.tier = node_data.get("tier", 1)
-            node.topic_keywords = node_data.get("topic_keywords")
-        else:
-            node = RoadmapNode(
-                id=node_data["id"],
-                path_id=path.id,
-                title=node_data["title"],
-                description=node_data.get("description"),
-                position_x=node_data.get("position_x", 0),
-                position_y=node_data.get("position_y", 0),
-                tier=node_data.get("tier", 1),
-                topic_keywords=node_data.get("topic_keywords"),
-            )
-            db.add(node)
-        
-        node_id_map[node_data["id"]] = node_data["id"]
-    
-    db.flush()  # Ensure all nodes have IDs
-    
-    # Create or update connections
-    for conn_data in data.get("connections", []):
-        from_id = conn_data["from_node_id"]
-        to_id = conn_data["to_node_id"]
-        
-        # Check if connection already exists
-        existing = db.query(RoadmapConnection).filter(
-            RoadmapConnection.path_id == path.id,
-            RoadmapConnection.from_node_id == from_id,
-            RoadmapConnection.to_node_id == to_id,
-        ).first()
-        
-        if not existing:
-            conn = RoadmapConnection(
-                path_id=path.id,
-                from_node_id=from_id,
-                to_node_id=to_id,
-                connection_type=conn_data.get("connection_type", "default"),
+        if not conn:
+            conn = TopicConnection(
+                from_topic_id=main_topic.id,
+                to_topic_id=sub_topic.id,
+                relationship_type="subtopic"
             )
             db.add(conn)
+    return main_topic
 
+def get_or_create_path(db, title, description, icon, colors, sort_order):
+    path = db.query(RoadmapPath).filter(RoadmapPath.title == title, RoadmapPath.is_custom == False).first()
+    if not path:
+        path = RoadmapPath(
+            title=title,
+            description=description,
+            icon=icon,
+            colors=colors,
+            sort_order=sort_order,
+            is_locked=False,
+            is_custom=False
+        )
+        db.add(path)
+        db.flush()
+    return path
 
-def seed_default_user(db):
-    """Create default user profile if it doesn't exist."""
+def create_roadmap_node(db, path_id, topic_id, pos_x, pos_y, tier):
+    node = db.query(RoadmapNode).filter(
+        RoadmapNode.path_id == path_id,
+        RoadmapNode.topic_id == topic_id
+    ).first()
+    if not node:
+        node = RoadmapNode(
+            path_id=path_id,
+            topic_id=topic_id,
+            position_x=pos_x,
+            position_y=pos_y,
+            tier=tier,
+            status="locked"
+        )
+        db.add(node)
+        db.flush()
+    return node
+
+def create_roadmap_connection(db, path_id, from_node_id, to_node_id):
+    conn = db.query(RoadmapConnection).filter(
+        RoadmapConnection.path_id == path_id,
+        RoadmapConnection.from_node_id == from_node_id,
+        RoadmapConnection.to_node_id == to_node_id
+    ).first()
+    if not conn:
+        conn = RoadmapConnection(
+            path_id=path_id,
+            from_node_id=from_node_id,
+            to_node_id=to_node_id,
+            connection_type="default"
+        )
+        db.add(conn)
+
+def seed_data(db):
+    print("Creating topics and subtopics...")
+    # 1. Create Topics and Subtopics
+    html_topic = create_topic_with_subtopics(db, "HTML", [
+        "HTML Basics", "Semantic HTML", "Forms and Validation", "Accessibility"
+    ])
+    css_topic = create_topic_with_subtopics(db, "CSS", [
+        "CSS Selectors", "CSS Specificity", "CSS Box Model", "CSS Display", 
+        "CSS Flexbox", "CSS Grid", "CSS Animations"
+    ])
+    js_topic = create_topic_with_subtopics(db, "JavaScript", [
+        "Syntax & Basic Constructs", "DOM Manipulation", "Fetch API / Ajax", "ES6+ Features"
+    ])
+
+    internet_topic = create_topic_with_subtopics(db, "Internet Fundamentals", [
+        "How does the internet work?", "What is HTTP?", "Browsers and how they work", "DNS and how it works"
+    ])
+    os_topic = create_topic_with_subtopics(db, "Operating Systems", [
+        "Terminal Usage", "How OS works in General", "Process Management", "Threads and Concurrency"
+    ])
+    lang_topic = create_topic_with_subtopics(db, "Programming Languages", [
+        "Python", "Java", "C#", "Go", "Rust", "Node.js"
+    ])
+
+    print("Creating roadmap paths...")
+    # 2. Create Roadmap Paths
+    frontend_path = get_or_create_path(
+        db, 
+        "Frontend Developer", 
+        "Step by step guide to becoming a modern frontend developer.", 
+        "Layout", 
+        "bg-gradient-to-br from-blue-500 to-cyan-500", 
+        1
+    )
+    backend_path = get_or_create_path(
+        db, 
+        "Backend Developer", 
+        "Step by step guide to becoming a modern backend developer.", 
+        "Server", 
+        "bg-gradient-to-br from-green-500 to-emerald-500", 
+        2
+    )
+
+    print("Creating roadmap nodes...")
+    # 3. Create Roadmap Nodes
+    # Frontend Nodes
+    fe_node_html = create_roadmap_node(db, frontend_path.id, html_topic.id, 0, 0, 1)
+    fe_node_css = create_roadmap_node(db, frontend_path.id, css_topic.id, 0, 100, 2)
+    fe_node_js = create_roadmap_node(db, frontend_path.id, js_topic.id, 0, 200, 3)
+
+    create_roadmap_connection(db, frontend_path.id, fe_node_html.id, fe_node_css.id)
+    create_roadmap_connection(db, frontend_path.id, fe_node_css.id, fe_node_js.id)
+
+    # Backend Nodes
+    be_node_internet = create_roadmap_node(db, backend_path.id, internet_topic.id, 0, 0, 1)
+    be_node_os = create_roadmap_node(db, backend_path.id, os_topic.id, 0, 100, 2)
+    be_node_lang = create_roadmap_node(db, backend_path.id, lang_topic.id, 0, 200, 3)
+
+    create_roadmap_connection(db, backend_path.id, be_node_internet.id, be_node_os.id)
+    create_roadmap_connection(db, backend_path.id, be_node_os.id, be_node_lang.id)
+
+    print("Creating default user profile...")
+    # 4. Create Default User Profile if needed
     user = db.query(UserProfile).filter(UserProfile.id == 1).first()
     if not user:
         user = UserProfile(
@@ -116,49 +166,33 @@ def seed_default_user(db):
         )
         db.add(user)
 
+    db.commit()
 
 def main():
-    """Main seeding function."""
-    # Get database URL from environment or use default
-    database_url = os.getenv("DATABASE_URL", "sqlite:///./mythiccode.db")
-    
-    # Create engine
+    from server.config import get_settings
+    settings = get_settings()
+    database_url = settings.DATABASE_URL
     engine = create_engine(
         database_url,
         connect_args={"check_same_thread": False} if "sqlite" in database_url else {},
     )
     
-    # Create tables
+    # In case there are missing tables, create them
     Base.metadata.create_all(bind=engine)
     
-    # Create session
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
     
     try:
-        # Seed all roadmaps
-        roadmap_files = ["frontend.json", "backend.json", "devops.json", "database.json"]
-        
-        for filename in roadmap_files:
-            print(f"Seeding {filename}...")
-            data = load_json_data(filename)
-            seed_roadmap(db, data)
-        
-        # Seed default user
-        print("Creating default user profile...")
-        seed_default_user(db)
-        
-        # Commit all changes
-        db.commit()
+        print("Seeding database with updated schema...")
+        seed_data(db)
         print("Seeding completed successfully!")
-        
     except Exception as e:
         db.rollback()
         print(f"Error during seeding: {e}")
         raise
     finally:
         db.close()
-
 
 if __name__ == "__main__":
     main()

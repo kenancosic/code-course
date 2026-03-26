@@ -26,6 +26,8 @@ class LessonContent:
     title: str
     objectives: list[str]
     content_markdown: str
+    task_type: str | None
+    task_content: str | None
     estimated_minutes: int
 
 
@@ -119,39 +121,52 @@ async def agent_lessons(ctx: PipelineContext) -> AsyncGenerator[str, None]:
             total_lessons=total,
         )
 
-        # Stream lesson content
-        content_parts = []
-        async for chunk in client.stream_completion(
-            messages=messages,
-            model=ctx.model or settings.LLM_DEFAULT_MODEL,
-            temperature=0.7,
-            max_tokens=4096,
-        ):
-            content_parts.append(chunk)
+        # We need JSON now instead of raw streaming
+        try:
+            result = await client.completion_json(
+                messages=messages,
+                model=ctx.model or settings.LLM_DEFAULT_MODEL,
+                temperature=0.7,
+                max_tokens=4096,
+            )
+            
+            # Since we switched to JSON, we'll just yield the final chunk once
+            full_content = result.get("content_markdown", "")
+            task_type = result.get("task_type")
+            task_content = result.get("task_content")
+            
             yield sse_event("chunk", {
                 "stage": "lesson",
                 "lesson_index": i,
-                "content_delta": chunk,
+                "content_delta": full_content,
+                "task_type": task_type,
+                "task_content": task_content,
             })
-
-        full_content = "".join(content_parts)
-        ctx.lessons.append(LessonContent(
-            index=i,
-            title=lesson_outline["title"],
-            objectives=lesson_outline.get("objectives", []),
-            content_markdown=full_content,
-            estimated_minutes=lesson_outline.get("estimated_minutes", 15),
-        ))
-
-        yield sse_event("status", {
-            "stage": "lesson",
-            "message": f"Lesson {i + 1}/{total} complete",
-            "lesson_index": i,
-        })
-
-        # Small delay between lessons for rate limiting
-        if i < total - 1:
-            await asyncio.sleep(0.1)
+            
+            ctx.lessons.append(LessonContent(
+                index=i,
+                title=lesson_outline["title"],
+                objectives=lesson_outline.get("objectives", []),
+                content_markdown=full_content,
+                task_type=task_type,
+                task_content=task_content,
+                estimated_minutes=lesson_outline.get("estimated_minutes", 15),
+            ))
+            
+            yield sse_event("status", {
+                "stage": "lesson",
+                "message": f"Lesson {i + 1}/{total} complete",
+                "lesson_index": i,
+            })
+            
+            # Small delay between lessons for rate limiting
+            if i < total - 1:
+                await asyncio.sleep(0.1)
+                
+        except Exception as e:
+            logger.error(f"Failed to generate lesson {i}: {str(e)}")
+            yield sse_event("error", {"stage": "lesson", "message": f"Failed to generate lesson {i}: {str(e)}"})
+            raise
 
 
 async def agent_exercises(ctx: PipelineContext) -> AsyncGenerator[str, None]:
@@ -177,7 +192,7 @@ async def agent_exercises(ctx: PipelineContext) -> AsyncGenerator[str, None]:
     ]
 
     messages = exercises.build_messages(
-        course_title=ctx.outline.title,
+        course_title=ctx.outline.title if ctx.outline else ctx.topic,
         lessons_summary=lessons_summary,
         tier=ctx.tier,
     )
@@ -231,7 +246,7 @@ async def agent_quiz(ctx: PipelineContext) -> AsyncGenerator[str, None]:
     ]
 
     messages = quiz.build_messages(
-        course_title=ctx.outline.title,
+        course_title=ctx.outline.title if ctx.outline else ctx.topic,
         lessons_summary=lessons_summary,
         tier=ctx.tier,
     )

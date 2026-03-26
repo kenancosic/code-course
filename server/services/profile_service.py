@@ -181,15 +181,15 @@ def get_skill_levels(db: Session) -> List[dict]:
     skills = []
     for path in paths:
         # Get all nodes in this path
-        node_ids = [node.id for node in path.nodes]
+        topic_ids = [node.topic_id for node in path.nodes if node.topic_id]
         
-        if not node_ids:
+        if not topic_ids:
             continue
         
-        # Get all courses for these nodes
+        # Get all courses for these topics
         course_ids = [
             c.id for c in 
-            db.query(Course).filter(Course.roadmap_node_id.in_(node_ids)).all()
+            db.query(Course).filter(Course.topic_id.in_(topic_ids)).all()
         ]
         
         if not course_ids:

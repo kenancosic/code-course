@@ -13,6 +13,8 @@ class RoadmapPath(Base):
     colors = Column(String(100), nullable=True)
     sort_order = Column(Integer, default=0)
     is_locked = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey("user_profiles.id"), nullable=True)
+    is_custom = Column(Boolean, default=False)
 
     nodes = relationship("RoadmapNode", back_populates="path", cascade="all, delete-orphan")
     connections = relationship("RoadmapConnection", back_populates="path", cascade="all, delete-orphan")
@@ -23,15 +25,14 @@ class RoadmapNode(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     path_id = Column(Integer, ForeignKey("roadmap_paths.id"), nullable=False)
-    title = Column(String(100), nullable=False)
-    description = Column(Text, nullable=True)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     position_x = Column(Integer, default=0)
     position_y = Column(Integer, default=0)
     tier = Column(Integer, default=1)
-    topic_keywords = Column(String(255), nullable=True)
+    status = Column(String(20), default="locked")
 
     path = relationship("RoadmapPath", back_populates="nodes")
-    courses = relationship("Course", back_populates="roadmap_node")
+    topic = relationship("Topic", back_populates="roadmap_nodes")
 
 
 class RoadmapConnection(Base):

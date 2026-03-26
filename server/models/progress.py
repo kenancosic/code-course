@@ -14,7 +14,7 @@ class UserProfile(Base):
     level = Column(Integer, default=1)
     current_path_id = Column(Integer, ForeignKey("roadmap_paths.id"), nullable=True)
 
-    current_path = relationship("RoadmapPath")
+    current_path = relationship("RoadmapPath", foreign_keys=[current_path_id])
 
 
 class UserProgress(Base):

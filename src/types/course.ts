@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HexColorSchema, PositionSchema, TierSchema } from './roadmap';
+import { HexColorSchema } from './roadmap';
 
 export interface CodeExample {
   id: string;

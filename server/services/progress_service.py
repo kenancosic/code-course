@@ -303,7 +303,7 @@ def get_roadmap_progress(db: Session, path_id: int) -> Optional[dict]:
     for node in nodes:
         # Get courses for this node
         node_courses = db.query(Course).filter(
-            Course.roadmap_node_id == node.id
+            Course.topic_id == node.topic_id
         ).all()
         
         if not node_courses:

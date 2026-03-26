@@ -1,15 +1,15 @@
 """Roadmap schemas for node-based learning paths."""
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
+from .topic import TopicResponse
 
 
 class RoadmapNodeBase(BaseModel):
-    title: str
-    description: Optional[str] = None
+    topic_id: int
     position_x: int = 0
     position_y: int = 0
     tier: int = 1
-    topic_keywords: Optional[str] = None
+    status: str = "locked"
 
 
 class RoadmapNodeCreate(RoadmapNodeBase):
@@ -21,6 +21,7 @@ class RoadmapNodeResponse(RoadmapNodeBase):
 
     id: int
     path_id: int
+    topic: Optional[TopicResponse] = None
 
 
 class RoadmapConnectionBase(BaseModel):
@@ -47,6 +48,8 @@ class RoadmapPathBase(BaseModel):
     colors: Optional[str] = None
     sort_order: int = 0
     is_locked: bool = False
+    user_id: Optional[int] = None
+    is_custom: bool = False
 
 
 class RoadmapPathCreate(RoadmapPathBase):
