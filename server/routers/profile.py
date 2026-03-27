@@ -33,6 +33,7 @@ class ActivityResponse(BaseModel):
 
 
 class ProfileResponse(BaseModel):
+    id: int
     display_name: str
     avatar_seed: str
     level: int

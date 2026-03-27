@@ -10,14 +10,15 @@ export {
 export type {
   Course,
   CourseLesson,
+  CourseStatus,
   GenerateSSEEvent,
   GenerateCourseRequest,
   EvaluateLessonRequest,
   EvaluateLessonResponse,
   TaskType,
 } from './use-courses';
-export { useProfile, useUpdateProfile } from './use-profile';
-export { useTopic } from './use-topics';
+export { useAchievements, useProfile, useUpdateProfile } from './use-profile';
+export { useGenerateRoadmap, useTopic } from './use-topics';
 export type { Topic, Subtopic, TopicConnection } from './use-topics';
 export {
   useProgressSummary,

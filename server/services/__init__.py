@@ -5,6 +5,8 @@ from .course_service import (
     generate_course,
 )
 from . import profile_service
+from . import progression_service
+from . import topic_service
 
 __all__ = [
     "get_course_with_lessons",
@@ -12,4 +14,6 @@ __all__ = [
     "delete_course",
     "generate_course",
     "profile_service",
+    "progression_service",
+    "topic_service",
 ]

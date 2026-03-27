@@ -1,5 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { UserProfile, UpdateProfileRequest } from '../types/progress';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  ProfileAchievement,
+  UpdateProfileRequest,
+  UserProfile,
+} from '../types/progress';
 
 const fetchProfile = async (): Promise<UserProfile> => {
   const response = await fetch('/api/profile/');
@@ -21,6 +25,14 @@ const updateProfile = async (data: UpdateProfileRequest): Promise<UserProfile> =
   return response.json();
 };
 
+const fetchAchievements = async (): Promise<ProfileAchievement[]> => {
+  const response = await fetch('/api/profile/achievements');
+  if (!response.ok) {
+    throw new Error('Failed to fetch achievements');
+  }
+  return response.json();
+};
+
 export function useProfile() {
   return useQuery({
     queryKey: ['profile'],
@@ -36,5 +48,12 @@ export function useUpdateProfile() {
     onSuccess: (data) => {
       queryClient.setQueryData(['profile'], data);
     },
+  });
+}
+
+export function useAchievements() {
+  return useQuery({
+    queryKey: ['profile', 'achievements'],
+    queryFn: fetchAchievements,
   });
 }

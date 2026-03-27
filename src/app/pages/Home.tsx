@@ -1,107 +1,69 @@
-import { Compass, Play, BookOpen, Star, Trophy, Scroll, Sparkles } from 'lucide-react';
+import { Compass, Play, BookOpen, Star, Trophy, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Skeleton } from '../components/ui/skeleton';
 import { Input } from '../components/ui/input';
-import { useProfile, useRoadmaps, useProgressSummary, useCourses } from '../../hooks';
-
-interface Profile {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string | null;
-  bio: string;
-  preferences: {
-    emailNotifications: boolean;
-    publicProfile: boolean;
-  };
-  level?: number;
-  xp_to_next_level?: number;
-  quests_completed?: number;
-  current_path?: string;
-  current_path_progress?: number;
-  current_roadmap_id?: string;
-  current_node_id?: string;
-}
+import {
+  useCourses,
+  useGenerateRoadmap,
+  useProfile,
+  useProgressSummary,
+  useRoadmapProgress,
+  useRoadmaps,
+} from '../../hooks';
 
 export function Home() {
   const navigate = useNavigate();
-  const { data: profile, isLoading: profileLoading } = useProfile() as {
-    data: Profile | undefined;
-    isLoading: boolean;
-  };
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: progress, isLoading: progressLoading } = useProgressSummary();
   const { data: roadmaps, isLoading: roadmapsLoading } = useRoadmaps();
   const { data: courses, isLoading: coursesLoading } = useCourses();
+  const generateRoadmap = useGenerateRoadmap();
 
   const [customTopic, setCustomTopic] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+
+  const currentPathId = profile?.current_path?.id;
+  const { data: currentPathProgress } = useRoadmapProgress(currentPathId ? String(currentPathId) : '');
+
+  const currentPath = useMemo(
+    () => roadmaps?.find((roadmap) => roadmap.id === currentPathId) ?? roadmaps?.[0] ?? null,
+    [currentPathId, roadmaps]
+  );
+
+  const recentCourses = (courses ?? []).slice(0, 4);
+  const hasRealCourses = recentCourses.length > 0;
 
   const handleGeneratePath = async () => {
     if (!customTopic.trim()) return;
-    setIsGenerating(true);
-    try {
-      const response = await fetch('/api/topics/generate-roadmap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: customTopic }),
-      });
-      if (!response.ok) throw new Error('Failed to generate path');
-      const data = await response.json();
-      navigate(`/roadmap/${data.id}`);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsGenerating(false);
-    }
+    const roadmap = await generateRoadmap.mutateAsync(customTopic.trim());
+    navigate(`/roadmap/${roadmap.id}`);
   };
-
-  const recentCourses = courses?.slice(0, 4) || [];
-
-  const currentPath = profile?.current_path || roadmaps?.[0]?.title || 'Choose Your Path';
-  const currentPathDescription = roadmaps?.[0]?.description || 'Start your journey today';
-  const pathProgress = profile?.current_path_progress || 0;
-  const continueLink = profile?.current_roadmap_id
-    ? `/roadmap/${profile.current_roadmap_id}`
-    : '/roadmap';
-
-  const level = profile?.level ?? 1;
-  const xpToNext = profile?.xp_to_next_level ?? 1000;
-  const questsCompleted = profile?.quests_completed ?? 0;
-
-  const totalXp = progress?.total_xp ?? 0;
-  const xpToNextLevel = progress?.xp_to_next_level ?? xpToNext;
-  const currentLevelXp = progress?.current_level_xp ?? 0;
-  const progressPercentage =
-    xpToNextLevel > 0 ? Math.round(((totalXp - currentLevelXp) / xpToNextLevel) * 100) : 0;
 
   const getStatusBadge = (status: string) => {
-    const statusLower = status.toLowerCase();
-    if (statusLower === 'completed') {
-      return (
-        <span className="px-2 py-1 text-xs font-medium rounded-full bg-chart-2/20 text-chart-2 border border-chart-2/30">
-          Completed
-        </span>
-      );
+    switch (status) {
+      case 'ready':
+        return (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-chart-2/20 text-chart-2 border border-chart-2/30">
+            Ready
+          </span>
+        );
+      case 'generating':
+        return (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary/20 text-primary border border-primary/30">
+            Generating
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-destructive/20 text-destructive border border-destructive/30">
+            Error
+          </span>
+        );
     }
-    return (
-      <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary/20 text-primary border border-primary/30">
-        In Progress
-      </span>
-    );
   };
-
-  const getCourseProgress = (course: { status: string; total_lessons: number }) => {
-    if (course.status.toLowerCase() === 'completed') {
-      return { completed: course.total_lessons, percentage: 100 };
-    }
-    return { completed: 0, percentage: 0 };
-  };
-
-  const hasRealCourses = recentCourses.length > 0;
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
@@ -118,7 +80,6 @@ export function Home() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Create Custom Path Widget (replaces Current Quest widget if we want to show it, or we add it next to them) */}
         <Card className="md:col-span-3 border-border bg-card/50 backdrop-blur-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
@@ -135,35 +96,40 @@ export function Home() {
                 placeholder="e.g. Machine Learning, Rust Programming..."
                 value={customTopic}
                 onChange={(e) => setCustomTopic(e.target.value)}
-                disabled={isGenerating}
+                disabled={generateRoadmap.isPending}
                 className="flex-1"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleGeneratePath();
+                  if (e.key === 'Enter') {
+                    void handleGeneratePath();
+                  }
                 }}
               />
               <Button
-                onClick={handleGeneratePath}
-                disabled={isGenerating || !customTopic.trim()}
+                onClick={() => void handleGeneratePath()}
+                disabled={generateRoadmap.isPending || !customTopic.trim()}
                 className="whitespace-nowrap w-full sm:w-auto"
               >
-                {isGenerating ? 'Generating...' : 'Generate Custom Path'}
+                {generateRoadmap.isPending ? 'Generating...' : 'Generate Custom Path'}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Current Quest Widget */}
         <Card className="md:col-span-2 border-border bg-card/50 backdrop-blur-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               <Compass className="text-primary" />
-              {profileLoading || roadmapsLoading ? <Skeleton className="h-6 w-48" /> : currentPath}
+              {profileLoading || roadmapsLoading ? (
+                <Skeleton className="h-6 w-48" />
+              ) : (
+                currentPath?.title ?? 'Choose Your Path'
+              )}
             </CardTitle>
             <CardDescription className="text-muted-foreground font-serif">
               {profileLoading || roadmapsLoading ? (
                 <Skeleton className="h-4 w-64 mt-2" />
               ) : (
-                currentPathDescription
+                currentPath?.description ?? 'Start your journey today'
               )}
             </CardDescription>
           </CardHeader>
@@ -176,27 +142,30 @@ export function Home() {
                 <p className="font-bold text-foreground font-serif text-lg tracking-wide">
                   {profileLoading ? (
                     <Skeleton className="h-6 w-32 inline-block" />
+                  ) : currentPath ? (
+                    `Advance through ${currentPath.title}`
                   ) : (
-                    'Complete basic training'
+                    'Choose your first path'
                   )}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-primary font-serif">{pathProgress}%</p>
+                <p className="text-2xl font-bold text-primary font-serif">
+                  {currentPathProgress?.completion_percentage ?? 0}%
+                </p>
                 <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">
                   Path Progress
                 </p>
               </div>
             </div>
             <Button className="w-full mt-6 gap-2" size="lg" variant="default" asChild>
-              <Link to={continueLink}>
+              <Link to={currentPath ? `/roadmap/${currentPath.id}` : '/roadmap'}>
                 <Play className="w-4 h-4" /> Continue Journey
               </Link>
             </Button>
           </CardContent>
         </Card>
 
-        {/* Quick Stats Widget */}
         <Card className="border-border bg-card/50 backdrop-blur-md">
           <CardHeader className="pb-2 border-b border-border">
             <CardTitle className="text-lg flex items-center gap-2 text-foreground">
@@ -208,22 +177,37 @@ export function Home() {
             <div className="flex justify-between items-center p-3 bg-background/50 rounded-sm border border-border">
               <span className="text-muted-foreground font-serif italic">Level</span>
               <span className="text-primary font-bold text-lg font-serif">
-                {profileLoading ? <Skeleton className="h-6 w-8 inline-block" /> : level}
+                {profileLoading ? (
+                  <Skeleton className="h-6 w-8 inline-block" />
+                ) : (
+                  progress?.current_level ?? profile?.level ?? 1
+                )}
               </span>
             </div>
             <div className="flex flex-col gap-2 p-3 bg-background/50 rounded-sm border border-border">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground font-serif italic">XP to next</span>
                 <span className="text-chart-2 font-medium font-serif">
-                  {progressLoading ? <Skeleton className="h-5 w-12 inline-block" /> : xpToNextLevel}
+                  {progressLoading ? (
+                    <Skeleton className="h-5 w-12 inline-block" />
+                  ) : (
+                    progress?.xp_to_next_level ?? profile?.xp_to_next_level ?? 0
+                  )}
                 </span>
               </div>
-              <Progress value={progressPercentage} className="h-1.5" />
+              <Progress
+                value={progress?.level_progress_percentage ?? 0}
+                className="h-1.5"
+              />
             </div>
             <div className="flex justify-between items-center p-3 bg-background/50 rounded-sm border border-border">
               <span className="text-muted-foreground font-serif italic">Quests Completed</span>
               <span className="text-chart-1 font-medium font-serif">
-                {profileLoading ? <Skeleton className="h-5 w-8 inline-block" /> : questsCompleted}
+                {profileLoading ? (
+                  <Skeleton className="h-5 w-8 inline-block" />
+                ) : (
+                  progress?.total_lessons_completed ?? profile?.quests_completed ?? 0
+                )}
               </span>
             </div>
 
@@ -234,18 +218,15 @@ export function Home() {
         </Card>
       </div>
 
-      {/* My Quests Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <BookOpen className="text-primary" />
             My Quests
           </h2>
-          {hasRealCourses && (
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/courses">View All</Link>
-            </Button>
-          )}
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/roadmap">Explore Roadmaps</Link>
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -264,39 +245,34 @@ export function Home() {
               </Card>
             ))
           ) : hasRealCourses ? (
-            recentCourses.map((course) => {
-              const courseProgress = getCourseProgress(course);
-              return (
-                <Link key={course.id} to={`/course/${course.id}`} className="block">
-                  <Card className="h-full hover:border-primary/50 transition-all cursor-pointer group bg-card/40 border-border hover:bg-card/60">
-                    <CardContent className="p-5 space-y-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                          {course.title}
-                        </h4>
-                      </div>
+            recentCourses.map((course) => (
+              <Link key={course.id} to={`/course/${course.id}`} className="block">
+                <Card className="h-full hover:border-primary/50 transition-all cursor-pointer group bg-card/40 border-border hover:bg-card/60">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                        {course.title}
+                      </h4>
+                    </div>
 
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Progress</span>
-                          <span>
-                            {courseProgress.completed}/{course.total_lessons} lessons
-                          </span>
-                        </div>
-                        <Progress value={courseProgress.percentage} className="h-2" />
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Lessons</span>
+                        <span>{course.total_lessons}</span>
                       </div>
+                      <Progress value={course.status === 'ready' ? 100 : 40} className="h-2" />
+                    </div>
 
-                      <div className="flex items-center justify-between pt-2">
-                        <span className="text-xs text-chart-2 font-medium">
-                          {course.total_xp} XP
-                        </span>
-                        {getStatusBadge(course.status)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-xs text-chart-2 font-medium">
+                        {course.total_xp} XP
+                      </span>
+                      {getStatusBadge(course.status)}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))
           ) : (
             <div className="col-span-full">
               <Card className="bg-card/40 border-border border-dashed">
@@ -319,54 +295,6 @@ export function Home() {
           )}
         </div>
       </div>
-
-      {/* Grimoire Section - Only show placeholder content if no real courses */}
-      {!hasRealCourses && (
-        <>
-          <h2 className="text-2xl font-semibold text-foreground mt-8 mb-4 flex items-center gap-2">
-            <BookOpen className="text-chart-1" />
-            Grimoire (Recent Artifacts)
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {roadmapsLoading
-              ? [1, 2, 3, 4].map((i) => (
-                  <Card key={i} className="bg-card/40">
-                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                      <div className="space-y-2 w-full">
-                        <Skeleton className="h-4 w-24 mx-auto" />
-                        <Skeleton className="h-3 w-16 mx-auto" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              : roadmaps
-                  ?.flatMap((r) => r.courses || [])
-                  .slice(0, 4)
-                  .map((course) => (
-                    <Card
-                      key={course.id}
-                      className="hover:border-primary/50 transition-colors cursor-pointer group bg-card/40"
-                    >
-                      <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(0,0,0,0.5)] border border-border">
-                          <Scroll className="text-chart-1/70 w-6 h-6" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">
-                            {course.title}
-                          </h4>
-                          <p className="text-xs text-muted-foreground/70 mt-1">
-                            {course.total_lessons} lessons • {course.total_xp} XP
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }

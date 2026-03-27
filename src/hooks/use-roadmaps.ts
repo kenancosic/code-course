@@ -25,7 +25,7 @@ export interface RoadmapConnection {
 
 export interface Roadmap {
   id: number;
-  user_id: string;
+  user_id: number | null;
   title: string;
   description: string | null;
   icon: string | null;

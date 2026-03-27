@@ -32,6 +32,9 @@ class ProgressSummaryResponse(BaseModel):
     total_courses_completed: int
     total_xp: int
     current_level: int
+    current_level_xp: int
+    xp_to_next_level: int
+    level_progress_percentage: int
     streak_days: int
 
 

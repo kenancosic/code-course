@@ -57,16 +57,16 @@ class SaveSessionRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     language: str = Field(..., pattern="^(javascript|python)$")
     code: str = Field(..., description="Code content")
-    course_id: Optional[str] = Field(None, description="Associated course ID")
-    lesson_id: Optional[str] = Field(None, description="Associated lesson ID")
+    course_id: Optional[int] = Field(None, description="Associated course ID")
+    lesson_id: Optional[int] = Field(None, description="Associated lesson ID")
     output: Optional[str] = Field(None, description="Last execution output")
     status: str = Field(default="in_progress", pattern="^(in_progress|passed|failed)$")
 
 
 class PracticeSessionResponse(BaseModel):
     id: str
-    course_id: Optional[str]
-    lesson_id: Optional[str]
+    course_id: Optional[int]
+    lesson_id: Optional[int]
     title: str
     language: str
     code: str
@@ -153,8 +153,8 @@ async def evaluate_solution(request: EvaluateRequest):
 
 @router.get("/sessions", response_model=List[PracticeSessionResponse])
 async def list_sessions(
-    course_id: Optional[str] = None,
-    lesson_id: Optional[str] = None,
+    course_id: Optional[int] = None,
+    lesson_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """List saved practice sessions.

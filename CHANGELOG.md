@@ -1,5 +1,9 @@
 # Changelog — MythicCode
 
+This file is a historical change record. It is not the source of truth for the current API or architecture contract.
+
+For the active contract, use `README.md`, `docs/api.md`, and `ARCHITECTURE.md`.
+
 ## Table of Contents
 
 1. [Project Overview](#project-overview)

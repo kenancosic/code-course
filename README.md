@@ -1,231 +1,154 @@
 # MythicCode
 
-An AI-powered interactive coding course platform with D&D gamification. Learn to code through epic quests, earn XP, level up your character, and master programming with AI-generated courses.
+MythicCode is a single-user React + FastAPI + SQLite learning app for building AI-generated coding courses with roadmap-style progression and lightweight gamification.
 
-**Key Features:**
+The current milestone keeps the app as a modular monolith:
 
-- **Topic-Based Learning**: Select multiple related subtopics to generate custom courses tailored to your learning goals
-- **AI-Generated Roadmaps**: Create dynamic learning paths for any topic with AI-suggested subtopics
-- **Interactive Lesson Tasks**: Each lesson includes quizzes, coding challenges, or projects with AI-powered evaluation
-- **D&D Gamification**: Earn XP, unlock achievements, and level up your character as you progress
+- React route pages call feature hooks in `src/hooks`
+- FastAPI routers call service-layer business logic in `server/services`
+- SQLAlchemy models in `server/models` own persistence
+- The backend serves the built frontend in production
 
-Inspired by [boot.dev](https://boot.dev) and [roadmap.sh](https://roadmap.sh).
+## Current Capabilities
 
-## Tech Stack Overview
+- Browse curated roadmap paths and inspect nodes/topics
+- Generate custom AI-shaped roadmaps from a free-form topic
+- Generate courses from one or more topic IDs over an SSE stream
+- Read lesson content and evaluate lesson tasks
+- Track lesson completion, XP, levels, streaks, and achievements
+- Edit the local profile and current roadmap path
+- Run practice code in JavaScript or Python and persist practice sessions
 
-### Frontend
+## Stack
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-- **Tailwind CSS** - Styling
-- **TanStack Query** - Server state management
-- **Zustand** - Client state management
-- **React Router** - Routing
-- **Monaco Editor** - Code editor
-- **shadcn/ui** - UI components (D&D themed with custom fantasy naming for pages)
-
-### Backend
-
-- **FastAPI** - Python web framework
-- **SQLAlchemy** - ORM
-- **Alembic** - Database migrations
-- **SQLite** - Database
-- **Pydantic** - Data validation
-- **OpenRouter** - LLM API access
+- Frontend: React 18, TypeScript, Vite, Tailwind, TanStack Query
+- Backend: FastAPI, SQLAlchemy, Alembic, Pydantic
+- Database: SQLite
+- LLM: OpenRouter via LiteLLM
 
 ## Prerequisites
 
-- **Node.js** >= 20
-- **pnpm** >= 8 (package manager)
-- **Python** >= 3.11
-- **uv** (recommended) or **pip** (Python package manager)
+- Node.js 20+
+- `pnpm`
+- Python 3.11+
+- `uv` recommended, or `pip`
 
-## Setup Instructions
+## Setup
 
-### 1. Clone the Repository
-
-```bash
-cd d:/Projects/code-course
-```
-
-### 2. Frontend Setup
+### Frontend
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Create environment file
-cp .env.example .env
+Copy-Item .env.example .env
 ```
 
-### 3. Backend Setup
-
-```bash
-cd server
-
-# Create virtual environment
-uv venv
-
-# Activate virtual environment
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-
-# Install dependencies
-uv pip install -r requirements.txt
-
-# Create environment file
-cp .env.example .env
-```
-
-Edit `server/.env` and add your OpenRouter API key:
+The frontend `.env` supports:
 
 ```env
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
+VITE_USE_MOCK_DATA=false
+VITE_API_BASE_URL=/api
 ```
 
-## Database Initialization
+### Backend
 
 ```bash
 cd server
-
-# Run migrations
+uv venv
+.\.venv\Scripts\activate
+uv pip install -r requirements.txt
+Copy-Item .env.example .env
 alembic upgrade head
-
-# Seed roadmap data (creates 4 roadmaps with 44 nodes and 250+ subtopics)
-cd server && python -m seed.seed_roadmaps
+python -m seed.seed_roadmaps
 ```
 
-The SQLite database will be created at `server/mythiccode.db`.
+Optional for LLM-backed generation and evaluation:
 
-## Development Mode
+```env
+OPENROUTER_API_KEY=your-key-here
+```
 
-Run both frontend and backend simultaneously in separate terminals:
+Without an API key, custom roadmap generation falls back to a deterministic roadmap shape.
 
-### Terminal 1 - Backend
+## Run The App
+
+### Development
+
+Backend:
 
 ```bash
 cd server
-uvicorn main:app --reload --port 8000
+.\venv\Scripts\activate
+uvicorn server.main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`.
-
-### Terminal 2 - Frontend
+Frontend:
 
 ```bash
 pnpm dev
 ```
 
-The dev server will start at `http://localhost:5173` with API proxy configured.
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:8000`
+- Health check: `http://localhost:8000/health`
 
-## Production Build
+### Production Build
 
 ```bash
-# Build frontend
 pnpm build
-
-# Start production server
 cd server
-uvicorn main:app --host 0.0.0.0 --port 8000
+.\venv\Scripts\activate
+uvicorn server.main:app --host 0.0.0.0 --port 8000
 ```
 
-FastAPI will serve the built frontend from the `dist/` directory.
+## Verification
+
+Frontend:
+
+```bash
+pnpm exec tsc --noEmit
+pnpm lint
+```
+
+Backend:
+
+```bash
+cd server
+.\venv\Scripts\activate
+python -m unittest discover -s tests -v
+```
 
 ## Project Structure
 
-```
+```text
 code-course/
-├── src/                          # React frontend
-│   ├── app/                      # App components and pages
-│   │   ├── components/           # UI components
-│   │   ├── pages/                # Page components
-│   │   ├── App.tsx               # Root app component
-│   │   └── routes.tsx            # Route definitions
-│   ├── api/                      # API client layer
-│   │   ├── client.ts             # Fetch wrapper
-│   │   ├── roadmaps.ts           # Roadmap API
-│   │   ├── courses.ts            # Course API
-│   │   └── profile.ts            # Profile API
-│   ├── hooks/                    # React Query hooks
-│   │   ├── use-roadmaps.ts
-│   │   ├── use-courses.ts
-│   │   └── use-profile.ts
-│   ├── stores/                   # Zustand stores
-│   │   ├── progress-store.ts
-│   │   └── ui-store.ts
-│   ├── types/                    # TypeScript types
-│   └── styles/                   # Global styles
-├── server/                       # FastAPI backend
-│   ├── main.py                   # App factory
-│   ├── config.py                 # Settings
-│   ├── database.py               # SQLAlchemy setup
-│   ├── routers/                  # API routes
-│   │   ├── roadmaps.py
-│   │   ├── topics.py
-│   │   └── courses.py
-│   ├── models/                   # ORM models
-│   │   ├── topic.py
-│   │   ├── roadmap.py
-│   │   ├── course.py
-│   │   └── progress.py
-│   ├── schemas/                  # Pydantic schemas
-│   ├── alembic/                  # Database migrations
-│   └── requirements.txt          # Python dependencies
-├── docs/                         # Documentation
-│   ├── architecture.md
-│   ├── api.md
-│   └── testing.md
-├── package.json                  # Node dependencies
-├── vite.config.ts                # Vite configuration
-└── README.md                     # This file
+├── src/
+│   ├── app/                # Pages, layout, UI components
+│   ├── hooks/              # Canonical frontend data layer
+│   ├── stores/             # Local UI state
+│   └── types/              # Shared frontend contract types
+├── server/
+│   ├── routers/            # FastAPI transport layer
+│   ├── services/           # Domain and application logic
+│   ├── models/             # SQLAlchemy models
+│   ├── schemas/            # Pydantic schemas
+│   ├── llm/                # LLM client, prompts, streaming helpers
+│   ├── alembic/            # Database migrations
+│   └── tests/              # API contract tests
+├── docs/
+│   ├── adr/                # Architecture decision records
+│   ├── api.md              # Implemented API contract
+│   ├── architecture.md     # Pointer to the canonical architecture doc
+│   └── testing.md          # Supplemental testing notes
+├── ARCHITECTURE.md         # Current-state architecture
+├── CHANGELOG.md            # Historical project changes
+└── log.md                  # Historical development notes
 ```
 
-## Available Scripts
+## Canonical Docs
 
-### Frontend Scripts
+- Product setup and runbook: `README.md`
+- Implemented API contract: `docs/api.md`
+- Current architecture and boundaries: `ARCHITECTURE.md`
+- Architectural decision trail: `docs/adr/`
 
-| Command      | Description              |
-| ------------ | ------------------------ |
-| `pnpm dev`   | Start development server |
-| `pnpm build` | Build for production     |
-
-### Backend Scripts
-
-| Command                                    | Description                      |
-| ------------------------------------------ | -------------------------------- |
-| `uvicorn main:app --reload`                | Start dev server with hot reload |
-| `alembic upgrade head`                     | Run database migrations          |
-| `alembic revision --autogenerate -m "msg"` | Create new migration             |
-| `python -m seed.seed_roadmaps`             | Seed roadmap data (run from server/ dir) |
-
-## Environment Variables
-
-### Frontend (.env)
-
-| Variable             | Description                  | Default |
-| -------------------- | ---------------------------- | ------- |
-| `VITE_USE_MOCK_DATA` | Use mock data instead of API | `false` (set to `true` for frontend-only development without backend) |
-| `VITE_API_BASE_URL`  | API base URL                 | `/api`  |
-
-### Backend (server/.env)
-
-| Variable             | Description          | Default                       |
-| -------------------- | -------------------- | ----------------------------- |
-| `DATABASE_URL`       | SQLite database URL  | `sqlite:///./mythiccode.db`   |
-| `OPENROUTER_API_KEY` | OpenRouter API key   | `None`                        |
-| `LLM_DEFAULT_MODEL`  | Default LLM model    | `anthropic/claude-sonnet-4.6` |
-| `LLM_FAST_MODEL`     | Fast/cheap LLM model | `google/gemini-2.5-flash`     |
-| `DEBUG`              | Enable debug mode    | `false`                       |
-
-## Documentation
-
-- [Architecture](docs/architecture.md) - System architecture and data flow
-- [API Documentation](docs/api.md) - API endpoints and examples
-- [Testing](docs/testing.md) - Testing guide and checklist
-
-## License
-
-MIT
+`CHANGELOG.md` and `log.md` are historical records only and should not be treated as the source of truth for the active contract.

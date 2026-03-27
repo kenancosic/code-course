@@ -3,35 +3,21 @@ import asyncio
 import logging
 import os
 import re
-import subprocess
 import tempfile
-import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from server.database import Base
 from server.llm.client import completion_json
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from server.models import PracticeSession
 
 logger = logging.getLogger(__name__)
 
 
-class PracticeSession(Base):
-    """Practice session model for storing user code sessions."""
-    __tablename__ = "practice_sessions"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    course_id = Column(String, ForeignKey("courses.id"), nullable=True)
-    lesson_id = Column(String, ForeignKey("lessons.id"), nullable=True)
-    title = Column(String, nullable=False)
-    language = Column(String, nullable=False)  # "javascript" or "python"
-    code = Column(Text, nullable=False)
-    output = Column(Text)
-    status = Column(String, default="in_progress")  # "in_progress", "passed", "failed"
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+def _utc_now() -> datetime:
+    """Return a naive UTC datetime without using deprecated utcnow()."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class TestCaseResult:
@@ -427,7 +413,11 @@ async def evaluate_solution(
         )
 
 
-def list_sessions(db: Session, course_id: Optional[str] = None, lesson_id: Optional[str] = None) -> list[PracticeSession]:
+def list_sessions(
+    db: Session,
+    course_id: Optional[int] = None,
+    lesson_id: Optional[int] = None,
+) -> list[PracticeSession]:
     """List practice sessions, optionally filtered by course or lesson."""
     query = db.query(PracticeSession)
     if course_id:
@@ -447,8 +437,8 @@ def create_session(
     title: str,
     language: str,
     code: str,
-    course_id: Optional[str] = None,
-    lesson_id: Optional[str] = None,
+    course_id: Optional[int] = None,
+    lesson_id: Optional[int] = None,
     output: Optional[str] = None,
     status: str = "in_progress",
 ) -> PracticeSession:
@@ -487,7 +477,7 @@ def update_session(
     if status is not None:
         session.status = status
     
-    session.updated_at = datetime.utcnow()
+    session.updated_at = _utc_now()
     db.commit()
     db.refresh(session)
     return session

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-export type TaskType = 'code' | 'quiz' | 'project' | null;
+export type TaskType = 'coding' | 'quiz' | 'project' | null;
+export type CourseStatus = 'generating' | 'ready' | 'error';
 
 export interface CourseLesson {
   id: number;
@@ -18,8 +19,7 @@ export interface Course {
   title: string;
   description: string | null;
   topic_id: number;
-  roadmap_node_id: number;
-  status: string;
+  status: CourseStatus;
   total_lessons: number;
   total_xp: number;
   created_at: string | null;
@@ -84,15 +84,15 @@ export interface GenerateCourseRequest {
 }
 
 export interface EvaluateLessonRequest {
-  course_id: string;
-  lesson_id: string;
+  course_id: number;
+  lesson_id: number;
   answer: string;
 }
 
 export interface EvaluateLessonResponse {
   is_correct: boolean;
   feedback: string;
-  suggestions?: string[];
+  suggestions?: string;
   xp_earned: number;
 }
 
@@ -142,8 +142,10 @@ export function generateCourseStream(
       });
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: 'Generation failed' }));
-        callbacks.onError?.({ message: err.detail || 'Generation failed' });
+        const err = await response
+          .json()
+          .catch(() => ({ message: 'Generation failed' }));
+        callbacks.onError?.({ message: err.message || 'Generation failed' });
         return;
       }
 

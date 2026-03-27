@@ -1,91 +1,26 @@
 """Profile service — business logic for user profiles, stats, and activity."""
-from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from server.models import (
-    UserProfile,
     UserProgress,
+    UserProfile,
     Achievement,
     UserAchievement,
     Course,
-    Lesson,
     RoadmapPath,
-    RoadmapNode,
 )
-
-
-# Level titles based on level ranges
-LEVEL_TITLES = [
-    (1, 5, "Novice Coder"),
-    (6, 10, "Script Apprentice"),
-    (11, 15, "Frontend Mage"),
-    (16, 20, "Backend Sage"),
-    (21, 25, "Fullstack Knight"),
-    (26, 30, "Algorithm Warlock"),
-    (31, 40, "System Architect"),
-    (41, 50, "Code Legend"),
-    (51, 99, "Mythic Developer"),
-    (100, float("inf"), "Eternal Hacker"),
-]
-
-
-def get_level_title(level: int) -> str:
-    """Get the title for a given level."""
-    for min_level, max_level, title in LEVEL_TITLES:
-        if min_level <= level <= max_level:
-            return title
-    return "Unknown"
-
-
-def calculate_level(total_xp: int) -> tuple[int, int, int]:
-    """Calculate level, current XP, and XP needed for next level.
-    
-    Returns: (level, xp_in_current_level, xp_to_next_level)
-    """
-    # XP formula: each level requires level * 100 XP
-    level = 1
-    xp_needed = 100
-    remaining_xp = total_xp
-    
-    while remaining_xp >= xp_needed:
-        remaining_xp -= xp_needed
-        level += 1
-        xp_needed = level * 100
-    
-    xp_to_next = xp_needed - remaining_xp
-    return level, remaining_xp, xp_to_next
-
-
-def ensure_profile_exists(db: Session) -> UserProfile:
-    """Ensure a single user profile exists, creating default if none found."""
-    profile = db.query(UserProfile).first()
-    if not profile:
-        profile = UserProfile(
-            display_name="Coder",
-            avatar_seed="Felix",
-            total_xp=0,
-            level=1,
-            current_path_id=None,
-        )
-        db.add(profile)
-        db.commit()
-        db.refresh(profile)
-    return profile
+from server.services import progression_service
 
 
 def get_profile_with_stats(db: Session) -> dict:
     """Get full user profile with computed stats."""
-    profile = ensure_profile_exists(db)
-    
-    # Calculate level from total XP
-    level, xp_in_level, xp_to_next = calculate_level(profile.total_xp)
-    
-    # Update level if it changed
-    if profile.level != level:
-        profile.level = level
+    profile = progression_service.get_or_create_profile(db)
+    snapshot = progression_service.progress_snapshot(profile.total_xp)
+
+    if profile.level != snapshot.current_level:
+        profile.level = snapshot.current_level
         db.commit()
     
     # Count completed quests (lessons)
@@ -103,12 +38,13 @@ def get_profile_with_stats(db: Session) -> dict:
     recent_activity = get_recent_activity(db, limit=5)
     
     return {
+        "id": profile.id,
         "display_name": profile.display_name or "Coder",
         "avatar_seed": profile.avatar_seed or "Felix",
-        "level": level,
-        "title": get_level_title(level),
+        "level": snapshot.current_level,
+        "title": snapshot.title,
         "total_xp": profile.total_xp,
-        "xp_to_next_level": xp_to_next,
+        "xp_to_next_level": snapshot.xp_to_next_level,
         "quests_completed": quests_completed,
         "current_path": current_path,
         "skills": skills,
@@ -116,9 +52,14 @@ def get_profile_with_stats(db: Session) -> dict:
     }
 
 
-def update_profile(db: Session, display_name: Optional[str] = None, avatar_seed: Optional[str] = None, current_path_id: Optional[int] = None) -> UserProfile:
+def update_profile(
+    db: Session,
+    display_name: Optional[str] = None,
+    avatar_seed: Optional[str] = None,
+    current_path_id: Optional[int] = None,
+):
     """Update user profile fields."""
-    profile = ensure_profile_exists(db)
+    profile = progression_service.get_or_create_profile(db)
     
     if display_name is not None:
         profile.display_name = display_name
@@ -255,13 +196,12 @@ def get_recent_activity(db: Session, limit: int = 20) -> List[dict]:
 
 def add_xp(db: Session, xp_amount: int) -> UserProfile:
     """Add XP to the user's profile and recalculate level."""
-    profile = ensure_profile_exists(db)
+    profile = progression_service.get_or_create_profile(db)
     
     profile.total_xp += xp_amount
     
     # Recalculate level
-    level, _, _ = calculate_level(profile.total_xp)
-    profile.level = level
+    profile.level = progression_service.calculate_level(profile.total_xp)
     
     db.commit()
     db.refresh(profile)
@@ -285,7 +225,6 @@ def record_lesson_completion(db: Session, lesson_id: int, course_id: int, xp_ear
         lesson_id=lesson_id,
         course_id=course_id,
         xp_earned=xp_earned,
-        completed_at=datetime.utcnow(),
     )
     db.add(progress)
     
@@ -299,7 +238,7 @@ def record_lesson_completion(db: Session, lesson_id: int, course_id: int, xp_ear
 
 def check_achievement_unlocks(db: Session) -> List[Achievement]:
     """Check and unlock any achievements that have been earned."""
-    profile = ensure_profile_exists(db)
+    profile = progression_service.get_or_create_profile(db)
     unlocked = []
     
     # Get already unlocked achievement IDs

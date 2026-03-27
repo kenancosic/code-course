@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from server.database import get_db
+from server.errors import api_error
 from server.models import Course, Topic
 from server.schemas.course import CourseResponse, LessonResponse, GenerateCourseRequest, EvaluateTaskRequest
 from server.services import course_service
@@ -24,10 +25,7 @@ async def get_course(course_id: int, db: Session = Depends(get_db)):
     """Get a course with all its lessons."""
     course = course_service.get_course_with_lessons(db, course_id)
     if not course:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Course {course_id} not found",
-        )
+        raise api_error(status.HTTP_404_NOT_FOUND, f"Course {course_id} not found")
     return course
 
 
@@ -42,9 +40,9 @@ async def get_lesson(course_id: int, lesson_id: int, db: Session = Depends(get_d
         .first()
     )
     if not lesson:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Lesson {lesson_id} not found in course {course_id}",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            f"Lesson {lesson_id} not found in course {course_id}",
         )
     return lesson
 
@@ -68,15 +66,15 @@ async def evaluate_lesson_task(
         .first()
     )
     if not lesson:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Lesson {lesson_id} not found in course {course_id}",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            f"Lesson {lesson_id} not found in course {course_id}",
         )
         
     if not lesson.task_content:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This lesson does not have a task to evaluate",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "This lesson does not have a task to evaluate",
         )
 
     settings = get_settings()
@@ -93,11 +91,13 @@ async def evaluate_lesson_task(
         return {
             "is_correct": result.get("is_correct", False),
             "feedback": result.get("feedback", "Evaluation failed to return feedback."),
+            "suggestions": result.get("suggestions"),
+            "xp_earned": result.get("xp_earned", lesson.xp_reward or 0),
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Evaluation failed: {str(e)}"
+        raise api_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"Evaluation failed: {str(e)}",
         )
 
 
@@ -106,10 +106,7 @@ async def delete_course(course_id: int, db: Session = Depends(get_db)):
     """Delete a course and all its lessons."""
     deleted = course_service.delete_course(db, course_id)
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Course {course_id} not found",
-        )
+        raise api_error(status.HTTP_404_NOT_FOUND, f"Course {course_id} not found")
 
 @router.post("/generate")
 async def generate_course(
@@ -127,17 +124,17 @@ async def generate_course(
         - error: Something went wrong
     """
     if not request.topic_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one topic ID must be provided",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "At least one topic ID must be provided",
         )
 
     # Validate the topics exist
     topics = db.query(Topic).filter(Topic.id.in_(request.topic_ids)).all()
     if not topics or len(topics) != len(request.topic_ids):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="One or more topics not found",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "One or more topics not found",
         )
 
     # Use the first topic for course association
@@ -153,9 +150,9 @@ async def generate_course(
         .first()
     )
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Course generation already in progress for topic {primary_topic_id}",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            f"Course generation already in progress for topic {primary_topic_id}",
         )
 
     # Return SSE stream

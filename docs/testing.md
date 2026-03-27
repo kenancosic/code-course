@@ -1,5 +1,7 @@
 # Testing Documentation
 
+This checklist supplements the current contract docs. For the implemented API and architecture, use `docs/api.md` and `ARCHITECTURE.md`.
+
 ## Manual Testing Checklist
 
 ### Frontend Testing

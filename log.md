@@ -1,5 +1,9 @@
 # Development Log — MythicCode
 
+This file is a historical development journal. It is not the source of truth for the current system contract.
+
+Use `README.md`, `docs/api.md`, and `ARCHITECTURE.md` for the current implementation.
+
 **Project**: MythicCode  
 **Started**: 2026-03-24  
 **Last Updated**: 2026-03-26  

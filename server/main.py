@@ -1,11 +1,17 @@
 """FastAPI application factory."""
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 import os
 
+from server.errors import (
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from server.routers import roadmaps, courses, progress, profile, practice, topics
 
 
@@ -48,20 +54,9 @@ def create_app() -> FastAPI:
     app.include_router(practice.router, prefix="/api")
     app.include_router(topics.router, prefix="/api")
     
-    # Exception handlers
-    @app.exception_handler(Exception)
-    async def general_exception_handler(request, exc):
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error", "message": str(exc)}
-        )
-    
-    @app.exception_handler(404)
-    async def not_found_handler(request, exc):
-        return JSONResponse(
-            status_code=404,
-            content={"detail": "Resource not found"}
-        )
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)
     
     @app.get("/health")
     async def health_check():

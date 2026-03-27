@@ -165,32 +165,19 @@ export function RoadmapDetail() {
       const course = courses?.find((c) => c.topic_id === node.topic_id);
       const prerequisites = connectionMap.get(node.id) || [];
 
-      // Determine status based on course and progress
-      let status: NodeStatus = 'locked';
+      // Determine status based on roadmap availability and course lifecycle
+      let status: NodeStatus = node.status === 'locked' ? 'locked' : 'available';
       let nodeProgress = 0;
 
-      if (node.status !== 'locked') {
-        if (course) {
-          if (course.status === 'completed') {
-            status = 'completed';
-            nodeProgress = 100;
-          } else if (course.status === 'in_progress') {
-            status = 'in-progress';
-            // Calculate progress from lessons if available
-            const completedLessons = course.lessons?.filter((l) => l.content_markdown).length || 0;
-            nodeProgress =
-              course.total_lessons > 0
-                ? Math.round((completedLessons / course.total_lessons) * 100)
-                : 0;
-          } else {
-            status = 'available';
-          }
-        } else if (node.status === 'unlocked' || node.status === 'available') {
+      if (node.status !== 'locked' && course) {
+        if (course.status === 'generating') {
+          status = 'in-progress';
+          nodeProgress = 35;
+        } else if (course.status === 'ready') {
           status = 'available';
+          nodeProgress = 100;
         } else {
-          // Fallback or handle based on prerequisites if node.status doesn't provide enough info,
-          // though it shouldn't hit this if node.status is reliable.
-          status = 'locked';
+          status = 'available';
         }
       }
 
@@ -834,7 +821,6 @@ export function RoadmapDetail() {
                             onClick={handleGenerateCourse}
                             variant="fantasy"
                             className="w-full justify-center gap-2 relative overflow-hidden group"
-                            disabled={selectedNode.status === 'locked'}
                           >
                             <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
                             <Sparkles className="w-4 h-4" /> Generate Course

@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Roadmap } from './use-roadmaps';
 
 export interface TopicBase {
   id: number;
@@ -38,5 +39,28 @@ export function useTopic(topicId: number | null) {
     queryKey: ['topic', topicId],
     queryFn: () => fetchTopic(topicId!),
     enabled: !!topicId,
+  });
+}
+
+const generateRoadmap = async (topic: string): Promise<Roadmap> => {
+  const response = await fetch('/api/topics/generate-roadmap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to generate roadmap');
+  }
+  return response.json();
+};
+
+export function useGenerateRoadmap() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: generateRoadmap,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roadmaps'] });
+    },
   });
 }

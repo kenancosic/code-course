@@ -1,6 +1,7 @@
 from .roadmap import RoadmapPath, RoadmapNode, RoadmapConnection
 from .course import Course, Lesson
 from .progress import UserProfile, UserProgress, Achievement, UserAchievement
+from .practice import PracticeSession
 from .topic import Topic, TopicConnection
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
     "UserProgress",
     "Achievement",
     "UserAchievement",
+    "PracticeSession",
     "Topic",
     "TopicConnection",
 ]

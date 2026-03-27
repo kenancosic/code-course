@@ -26,7 +26,7 @@ import {
   Shield,
   Crown,
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ScrollArea } from '../components/ui/scroll-area';
 import {
@@ -393,7 +393,6 @@ export function Practice() {
     if (hintsRevealed < selectedChallenge.hints.length) {
       incrementHintsUsed(selectedChallenge.id);
       setHintsRevealed((prev) => prev + 1);
-      setShowHint(hintsRevealed);
       toast.info(`Hint ${hintsRevealed + 1} revealed! (-10 XP potential)`);
     } else {
       toast.info('All hints already revealed!');
