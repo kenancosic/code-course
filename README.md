@@ -24,7 +24,7 @@ The current milestone keeps the app as a modular monolith:
 - Frontend: React 18, TypeScript, Vite, Tailwind, TanStack Query
 - Backend: FastAPI, SQLAlchemy, Alembic, Pydantic
 - Database: SQLite
-- LLM: OpenRouter via LiteLLM
+- LLM: OpenAI via LiteLLM
 
 ## Prerequisites
 
@@ -64,10 +64,10 @@ python -m seed.seed_roadmaps
 Optional for LLM-backed generation and evaluation:
 
 ```env
-OPENROUTER_API_KEY=your-key-here
+OPENAI_API_KEY=your-key-here
 ```
 
-Without an API key, custom roadmap generation falls back to a deterministic roadmap shape.
+Without an API key, custom roadmap generation falls back to a deterministic roadmap shape. AI-backed practice generation, AI helper feedback, and lesson evaluation return a clear configuration error until `OPENAI_API_KEY` is set.
 
 ## Run The App
 

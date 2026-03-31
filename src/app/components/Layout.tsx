@@ -29,7 +29,7 @@ export function Layout() {
   const location = useLocation();
 
   return (
-    <SidebarProvider className="bg-background text-foreground font-sans overflow-hidden h-screen">
+    <SidebarProvider className="bg-background text-foreground font-sans overflow-hidden h-svh min-h-0">
       {/* Sidebar */}
       <Sidebar collapsible="icon" className="border-r border-border bg-sidebar z-20">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
@@ -127,12 +127,12 @@ export function Layout() {
       </Sidebar>
 
       {/* Main Content */}
-      <SidebarInset className="flex-1 flex flex-col h-full relative overflow-y-auto bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-repeat custom-scrollbar bg-background">
+      <SidebarInset className="relative flex flex-1 min-h-0 flex-col overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-repeat custom-scrollbar bg-background">
         {/* Subtle background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-secondary/30 blur-[150px] rounded-full pointer-events-none" />
 
-        <div className="flex-1 p-6 lg:p-10 z-10 w-full max-w-[1600px] mx-auto">
+        <div className="z-10 mx-auto flex w-full max-w-[1600px] flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10">
           <Outlet />
         </div>
       </SidebarInset>

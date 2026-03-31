@@ -8,11 +8,13 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from server.errors import (
+    ai_configuration_exception_handler,
     http_exception_handler,
     unhandled_exception_handler,
     validation_exception_handler,
+    AIConfigurationError,
 )
-from server.routers import roadmaps, courses, progress, profile, practice, topics
+from server.routers import roadmaps, courses, progress, profile, practice, topics, grimoires
 
 
 @asynccontextmanager
@@ -53,9 +55,11 @@ def create_app() -> FastAPI:
     app.include_router(profile.router, prefix="/api")
     app.include_router(practice.router, prefix="/api")
     app.include_router(topics.router, prefix="/api")
+    app.include_router(grimoires.router, prefix="/api")
     
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(AIConfigurationError, ai_configuration_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
     
     @app.get("/health")

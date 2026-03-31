@@ -200,10 +200,11 @@ curl http://localhost:8000/api/progress/summary
 curl -X POST http://localhost:8000/api/practice/execute \
   -H "Content-Type: application/json" \
   -d '{
-    "code": "console.log(2 + 2);",
+    "code": "function solve(a, b) { return a + b; }",
     "language": "javascript",
+    "entrypoint_name": "solve",
     "test_cases": [
-      {"input": "", "expected_output": "4"}
+      {"input": "2, 2", "expected_output": "4"}
     ]
   }'
 ```
@@ -213,10 +214,11 @@ curl -X POST http://localhost:8000/api/practice/execute \
 curl -X POST http://localhost:8000/api/practice/execute \
   -H "Content-Type: application/json" \
   -d '{
-    "code": "print(2 + 2)",
+    "code": "def solve(a, b):\n    return a + b",
     "language": "python",
+    "entrypoint_name": "solve",
     "test_cases": [
-      {"input": "", "expected_output": "4"}
+      {"input": "2, 2", "expected_output": "4"}
     ]
   }'
 ```
@@ -352,7 +354,7 @@ pnpm dev
 - Check proxy configuration in vite.config.ts
 
 **LLM API errors:**
-- Verify OPENROUTER_API_KEY is set
+- Verify OPENAI_API_KEY is set
 - Check API key has sufficient credits
 
 **Code execution fails:**

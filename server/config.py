@@ -4,9 +4,10 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./server/mythiccode.db"
-    OPENROUTER_API_KEY: str | None = None
-    LLM_DEFAULT_MODEL: str = "anthropic/claude-sonnet-4.6"
-    LLM_FAST_MODEL: str = "google/gemini-2.5-flash"
+    OPENAI_API_KEY: str | None = None
+    LLM_DEFAULT_MODEL: str = "gpt-4.1"
+    LLM_FAST_MODEL: str = "gpt-4.1-mini"
+    GRIMOIRE_UPLOAD_DIR: str = "./server/uploads/grimoires"
     DEBUG: bool = False
 
     class Config:

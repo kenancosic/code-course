@@ -67,7 +67,7 @@ def _fallback_roadmap(topic: str) -> dict:
 
 async def _llm_roadmap(topic: str) -> dict:
     settings = get_settings()
-    if not settings.OPENROUTER_API_KEY:
+    if not settings.OPENAI_API_KEY:
         return _fallback_roadmap(topic)
 
     messages = [

@@ -26,6 +26,8 @@ class RoadmapNode(Base):
     id = Column(Integer, primary_key=True, index=True)
     path_id = Column(Integer, ForeignKey("roadmap_paths.id"), nullable=False)
     topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
+    source_document_id = Column(Integer, ForeignKey("source_documents.id"), nullable=True)
+    source_section_id = Column(Integer, ForeignKey("document_sections.id"), nullable=True)
     position_x = Column(Integer, default=0)
     position_y = Column(Integer, default=0)
     tier = Column(Integer, default=1)
@@ -33,6 +35,8 @@ class RoadmapNode(Base):
 
     path = relationship("RoadmapPath", back_populates="nodes")
     topic = relationship("Topic", back_populates="roadmap_nodes")
+    source_document = relationship("SourceDocument", back_populates="roadmap_nodes", foreign_keys=[source_document_id])
+    source_section = relationship("DocumentSection", back_populates="roadmap_nodes", foreign_keys=[source_section_id])
 
 
 class RoadmapConnection(Base):

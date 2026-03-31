@@ -16,7 +16,24 @@ DEFAULT_ERROR_CODES = {
     409: "CONFLICT",
     422: "VALIDATION_ERROR",
     500: "INTERNAL_ERROR",
+    503: "SERVICE_UNAVAILABLE",
 }
+
+
+class AIConfigurationError(RuntimeError):
+    """Raised when an AI-backed feature is requested without a configured provider."""
+
+
+async def ai_configuration_exception_handler(
+    _: Request, exc: AIConfigurationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content=error_payload(
+            "AI_NOT_CONFIGURED",
+            str(exc) or "OpenAI is not configured for this environment.",
+        ),
+    )
 
 
 def error_payload(code: str, message: str, details: object | None = None) -> dict:

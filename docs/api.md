@@ -116,7 +116,7 @@ Request:
 
 Response: `RoadmapPathResponse`
 
-If an OpenRouter key is configured, the roadmap is LLM-shaped. Otherwise the backend returns a deterministic fallback roadmap and still persists it.
+If an OpenAI key is configured, the roadmap is LLM-shaped. Otherwise the backend returns a deterministic fallback roadmap and still persists it.
 
 ## Courses
 
@@ -335,9 +335,51 @@ Returns recent activity entries.
 
 ## Practice
 
+Practice now has two layers:
+
+- `execute` and `evaluate` are generic runner/helper endpoints.
+- catalog, floor, room, spawn, and encounter submission endpoints own authoritative practice progression.
+
+### `GET /api/practice/catalog`
+
+Returns practice floors derived from roadmap nodes, plus filter metadata.
+
+### `GET /api/practice/floors/{floor_id}`
+
+Returns one floor with related courses and any persisted challenge templates.
+
+### `POST /api/practice/challenges/generate`
+
+Generates and persists a server-owned practice challenge for a floor.
+
+If OpenAI is not configured, this endpoint returns:
+
+```json
+{
+  "code": "AI_NOT_CONFIGURED",
+  "message": "AI is not configured. Set OPENAI_API_KEY to use this feature."
+}
+```
+
+### `POST /api/practice/rooms`
+
+Creates a practice room with 3 standard encounters and 1 boss encounter.
+
+### `GET /api/practice/rooms/{room_id}`
+
+Returns the full room state, including attempts, encounter list, boss availability, and remediation actions.
+
+### `POST /api/practice/rooms/{room_id}/spawn`
+
+Spawns 1 or 3 more practice encounters for token recovery and continued drilling.
+
+### `POST /api/practice/encounters/{encounter_id}/submit`
+
+Runs authoritative grading for a room encounter using server-owned hidden tests and updates room progression.
+
 ### `POST /api/practice/execute`
 
-Executes JavaScript or Python with test cases.
+Executes JavaScript or Python with optional test cases for non-authoritative run feedback.
 
 Request:
 
@@ -358,7 +400,7 @@ Response:
 
 ```json
 {
-  "stdout": "TEST_0_START\n5\nTEST_0_END\n",
+  "stdout": "",
   "stderr": "",
   "exit_code": 0,
   "execution_time_ms": 12,
@@ -367,7 +409,8 @@ Response:
       "passed": true,
       "input": "2, 3",
       "expected": "5",
-      "actual": "5"
+      "actual": "5",
+      "is_hidden": false
     }
   ]
 }
@@ -375,7 +418,7 @@ Response:
 
 ### `POST /api/practice/evaluate`
 
-Evaluates a submitted practice solution.
+Evaluates a submitted practice solution for AI helper feedback only. It is not the authoritative grading endpoint for room progression.
 
 ### `GET /api/practice/sessions`
 

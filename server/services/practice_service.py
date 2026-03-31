@@ -1,424 +1,716 @@
-"""Practice/arena service — code execution, LLM evaluation, session management."""
-import asyncio
-import logging
-import os
-import re
-import tempfile
+"""Practice domain service — catalog, challenge templates, rooms, and session persistence."""
+
+from __future__ import annotations
 from datetime import UTC, datetime
-from typing import Optional
+from typing import Any, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from server.errors import api_error
 from server.llm.client import completion_json
-from server.models import PracticeSession
-
-logger = logging.getLogger(__name__)
+from server.models import (
+    Course,
+    PracticeChallenge,
+    PracticeEncounter,
+    PracticeRoom,
+    PracticeSession,
+    PracticeSubmission,
+    RoadmapNode,
+    Topic,
+    TopicConnection,
+)
+from server.services.practice_execution import (
+    StructuredTestCase,
+    execute_structured_code,
+    structured_test_to_display,
+)
 
 
 def _utc_now() -> datetime:
-    """Return a naive UTC datetime without using deprecated utcnow()."""
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-class TestCaseResult:
-    """Result of a single test case execution."""
-    def __init__(self, passed: bool, input_data: str, expected: str, actual: str):
-        self.passed = passed
-        self.input = input_data
-        self.expected = expected
-        self.actual = actual
+def _validate_language(language: str) -> str:
+    if language not in {"javascript", "python"}:
+        raise api_error(422, f"Unsupported practice language '{language}'")
+    return language
 
-    def to_dict(self) -> dict:
-        return {
-            "passed": self.passed,
-            "input": self.input,
-            "expected": self.expected,
-            "actual": self.actual,
+
+def _validate_difficulty(difficulty: str) -> str:
+    if difficulty not in {"easy", "medium", "hard"}:
+        raise api_error(422, f"Unsupported practice difficulty '{difficulty}'")
+    return difficulty
+
+
+def _serialize_challenge(challenge: PracticeChallenge) -> dict[str, Any]:
+    return {
+        "id": challenge.id,
+        "path_id": challenge.path_id,
+        "topic_id": challenge.topic_id,
+        "lesson_id": challenge.lesson_id,
+        "title": challenge.title,
+        "summary": challenge.summary,
+        "instructions": challenge.instructions,
+        "explanation": challenge.explanation,
+        "language": challenge.language,
+        "difficulty": challenge.difficulty,
+        "challenge_kind": challenge.challenge_kind,
+        "entrypoint_name": challenge.entrypoint_name,
+        "starter_code": challenge.starter_code,
+        "xp_reward": challenge.xp_reward,
+        "visible_tests": [structured_test_to_display(test_case) for test_case in challenge.visible_tests or []],
+        "hints": challenge.hints or [],
+        "examples": challenge.examples or [],
+        "constraints": challenge.constraints or [],
+        "tags": challenge.tags or [],
+        "ai_generated": challenge.ai_generated,
+        "created_at": challenge.created_at.isoformat() if challenge.created_at else "",
+    }
+
+
+def _topic_subtopics_map(db: Session, topic_ids: list[int]) -> dict[int, list[str]]:
+    if not topic_ids:
+        return {}
+
+    connections = (
+        db.query(TopicConnection)
+        .filter(
+            TopicConnection.from_topic_id.in_(topic_ids),
+            TopicConnection.relationship_type == "subtopic",
+        )
+        .all()
+    )
+    titles = {
+        topic.id: topic.title
+        for topic in db.query(Topic).filter(Topic.id.in_([row.to_topic_id for row in connections])).all()
+    }
+    grouped: dict[int, list[str]] = {topic_id: [] for topic_id in topic_ids}
+    for connection in connections:
+        title = titles.get(connection.to_topic_id)
+        if title:
+            grouped[connection.from_topic_id].append(title)
+    return grouped
+
+
+def _related_courses(db: Session, topic_id: int) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": course.id,
+            "title": course.title,
+            "status": course.status,
+            "total_lessons": course.total_lessons,
         }
+        for course in db.query(Course)
+        .filter(Course.topic_id == topic_id)
+        .order_by(Course.created_at.desc())
+        .all()
+    ]
 
 
-class ExecutionResult:
-    """Result of code execution."""
-    def __init__(
-        self,
-        stdout: str,
-        stderr: str,
-        exit_code: int,
-        execution_time_ms: int,
-        test_results: list[TestCaseResult],
+def _serialize_floor_summary(
+    floor: RoadmapNode,
+    subtopics: list[str],
+    challenge_count: int,
+    active_room_id: str | None,
+) -> dict[str, Any]:
+    return {
+        "id": floor.id,
+        "path_id": floor.path_id,
+        "topic_id": floor.topic_id,
+        "category": floor.path.title,
+        "subcategory": floor.topic.title,
+        "description": floor.topic.description,
+        "subtopics": subtopics,
+        "difficulty_levels": ["easy", "medium", "hard"],
+        "language_options": ["javascript", "python"],
+        "challenge_count": challenge_count,
+        "active_room_id": active_room_id,
+    }
+
+
+def list_catalog(
+    db: Session,
+    search_query: str | None = None,
+    category: str | None = None,
+    subcategory: str | None = None,
+) -> dict[str, Any]:
+    floors = (
+        db.query(RoadmapNode)
+        .options(joinedload(RoadmapNode.path), joinedload(RoadmapNode.topic))
+        .order_by(RoadmapNode.path_id.asc(), RoadmapNode.tier.asc(), RoadmapNode.position_y.asc())
+        .all()
+    )
+    subtopics_map = _topic_subtopics_map(db, [floor.topic_id for floor in floors])
+    challenge_counts = {
+        (path_id, topic_id): count
+        for path_id, topic_id, count in db.query(
+            PracticeChallenge.path_id,
+            PracticeChallenge.topic_id,
+            func.count(PracticeChallenge.id),
+        )
+        .group_by(PracticeChallenge.path_id, PracticeChallenge.topic_id)
+        .all()
+    }
+    active_rooms = {}
+    for floor_id, room_id in (
+        db.query(PracticeRoom.floor_id, PracticeRoom.id)
+        .filter(PracticeRoom.status != "completed")
+        .order_by(PracticeRoom.updated_at.desc())
+        .all()
     ):
-        self.stdout = stdout
-        self.stderr = stderr
-        self.exit_code = exit_code
-        self.execution_time_ms = execution_time_ms
-        self.test_results = test_results
+        active_rooms.setdefault(floor_id, room_id)
 
-    def to_dict(self) -> dict:
-        return {
-            "stdout": self.stdout,
-            "stderr": self.stderr,
-            "exit_code": self.exit_code,
-            "execution_time_ms": self.execution_time_ms,
-            "test_results": [tr.to_dict() for tr in self.test_results],
-        }
-
-
-class EvaluationResult:
-    """Result of LLM code evaluation."""
-    def __init__(
-        self,
-        feedback: str,
-        hints: list[str],
-        score: int,
-        passed: bool,
-    ):
-        self.feedback = feedback
-        self.hints = hints
-        self.score = score
-        self.passed = passed
-
-    def to_dict(self) -> dict:
-        return {
-            "feedback": self.feedback,
-            "hints": self.hints,
-            "score": self.score,
-            "passed": self.passed,
-        }
-
-
-# Security patterns to block
-BLOCKED_PATTERNS = {
-    "python": [
-        r"\bimport\s+os\b",
-        r"\bimport\s+subprocess\b",
-        r"\bimport\s+sys\b",
-        r"\b__import__\s*\(",
-        r"\bopen\s*\(",
-        r"\bfile\s*\(",
-        r"\bexec\s*\(",
-        r"\beval\s*\(",
-        r"\bcompile\s*\(",
-        r"\binput\s*\(",
-        r"\braw_input\s*\(",
-    ],
-    "javascript": [
-        r"\brequire\s*\(\s*['\"]fs['\"]\s*\)",
-        r"\brequire\s*\(\s*['\"]child_process['\"]\s*\)",
-        r"\brequire\s*\(\s*['\"]path['\"]\s*\)",
-        r"\bimport\s+['\"]fs['\"]",
-        r"\bimport\s+['\"]child_process['\"]",
-        r"\bprocess\s*\.\s*exit\s*\(",
-        r"\bdocument\b",
-        r"\bwindow\b",
-        r"\beval\s*\(",
-        r"\bFunction\s*\(",
-        r"\bsetTimeout\s*\(",
-        r"\bsetInterval\s*\(",
-        r"\brequire\s*\(\s*['\"]http['\"]\s*\)",
-        r"\brequire\s*\(\s*['\"]https['\"]\s*\)",
-        r"\brequire\s*\(\s*['\"]net['\"]\s*\)",
-    ],
-}
-
-
-def _check_security(code: str, language: str) -> Optional[str]:
-    """Check code for potentially dangerous patterns.
-    
-    Returns error message if unsafe code detected, None otherwise.
-    """
-    patterns = BLOCKED_PATTERNS.get(language, [])
-    for pattern in patterns:
-        if re.search(pattern, code, re.IGNORECASE):
-            return f"Security violation: blocked pattern '{pattern}' detected"
-    return None
-
-
-def _prepare_test_code(code: str, language: str, test_cases: list[dict]) -> str:
-    """Wrap user code with test case execution.
-    
-    For JavaScript: appends console.log statements for each test
-    For Python: appends print statements for each test
-    """
-    if language == "javascript":
-        # Extract function name from code (simple heuristic)
-        func_match = re.search(r"function\s+(\w+)\s*\(", code)
-        if not func_match:
-            func_match = re.search(r"const\s+(\w+)\s*=\s*(?:async\s*)?\(", code)
-        if not func_match:
-            func_match = re.search(r"(?:let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(", code)
-        
-        func_name = func_match.group(1) if func_match else "solution"
-        
-        test_code = code + "\n\n// Test cases\n"
-        for i, tc in enumerate(test_cases):
-            input_val = tc.get("input", "")
-            test_code += f"console.log('TEST_{i}_START');\n"
-            test_code += f"console.log({func_name}({input_val}));\n"
-            test_code += f"console.log('TEST_{i}_END');\n"
-        return test_code
-    
-    elif language == "python":
-        # Try to detect function name
-        func_match = re.search(r"def\s+(\w+)\s*\(", code)
-        func_name = func_match.group(1) if func_match else "solution"
-        
-        test_code = code + "\n\n# Test cases\n"
-        for i, tc in enumerate(test_cases):
-            input_val = tc.get("input", "")
-            test_code += f"print('TEST_{i}_START')\n"
-            test_code += f"print({func_name}({input_val}))\n"
-            test_code += f"print('TEST_{i}_END')\n"
-        return test_code
-    
-    return code
-
-
-def _parse_test_output(stdout: str, test_cases: list[dict]) -> list[TestCaseResult]:
-    """Parse test output to extract test results."""
-    results = []
-    lines = stdout.strip().split("\n")
-    
-    for i, tc in enumerate(test_cases):
-        expected = str(tc.get("expected_output", "")).strip()
-        start_marker = f"TEST_{i}_START"
-        end_marker = f"TEST_{i}_END"
-        
-        actual = ""
-        capturing = False
-        for line in lines:
-            if start_marker in line:
-                capturing = True
-                continue
-            if end_marker in line:
-                capturing = False
-                break
-            if capturing:
-                actual = line.strip()
-                capturing = False  # Only capture first output line
-        
-        passed = actual == expected
-        results.append(TestCaseResult(
-            passed=passed,
-            input_data=tc.get("input", ""),
-            expected=expected,
-            actual=actual,
-        ))
-    
-    return results
-
-
-async def execute_code(
-    code: str,
-    language: str,
-    test_cases: list[dict],
-    timeout_seconds: int = 5,
-) -> ExecutionResult:
-    """Execute code in a sandboxed environment.
-    
-    Args:
-        code: User code to execute
-        language: "javascript" or "python"
-        test_cases: List of test cases with input and expected_output
-        timeout_seconds: Execution timeout (default 5s)
-    
-    Returns:
-        ExecutionResult with stdout, stderr, exit code, and test results
-    """
-    import time
-    start_time = time.time()
-    
-    # Security check
-    security_error = _check_security(code, language)
-    if security_error:
-        return ExecutionResult(
-            stdout="",
-            stderr=security_error,
-            exit_code=1,
-            execution_time_ms=0,
-            test_results=[],
+    serialized: list[dict[str, Any]] = []
+    for floor in floors:
+        summary = _serialize_floor_summary(
+            floor,
+            subtopics_map.get(floor.topic_id, []),
+            challenge_counts.get((floor.path_id, floor.topic_id), 0),
+            active_rooms.get(floor.id),
         )
-    
-    # Prepare test code
-    full_code = _prepare_test_code(code, language, test_cases)
-    
-    # Create temp file
-    suffix = ".js" if language == "javascript" else ".py"
-    with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as f:
-        f.write(full_code)
-        temp_path = f.name
-    
-    try:
-        if language == "javascript":
-            # Run with Node.js, memory limit, no network
-            cmd = [
-                "node",
-                "--max-old-space-size=64",
-                "--no-deprecation",
-                temp_path,
-            ]
-        elif language == "python":
-            # Run Python with restricted environment
-            cmd = [
-                "python",
-                "-c",
-                full_code,
-            ]
-        else:
-            return ExecutionResult(
-                stdout="",
-                stderr=f"Unsupported language: {language}",
-                exit_code=1,
-                execution_time_ms=0,
-                test_results=[],
+        haystack = " ".join(
+            filter(
+                None,
+                [
+                    summary["category"],
+                    summary["subcategory"],
+                    summary["description"] or "",
+                    " ".join(summary["subtopics"]),
+                ],
             )
-        
-        # Run subprocess with timeout
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            # Restrict environment - no network, limited env vars
-            env={"PATH": os.environ.get("PATH", "")},
-        )
-        
-        try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=timeout_seconds,
-            )
-            stdout = stdout_bytes.decode("utf-8", errors="replace")
-            stderr = stderr_bytes.decode("utf-8", errors="replace")
-            exit_code = proc.returncode
-        except asyncio.TimeoutError:
-            proc.kill()
-            stdout = ""
-            stderr = f"Execution timed out after {timeout_seconds} seconds"
-            exit_code = 124
-        
-        execution_time_ms = int((time.time() - start_time) * 1000)
-        
-        # Parse test results
-        test_results = _parse_test_output(stdout, test_cases)
-        
-        return ExecutionResult(
-            stdout=stdout,
-            stderr=stderr,
-            exit_code=exit_code,
-            execution_time_ms=execution_time_ms,
-            test_results=test_results,
-        )
-        
-    except Exception as e:
-        logger.error("Code execution failed: %s", str(e))
-        return ExecutionResult(
-            stdout="",
-            stderr=f"Execution error: {str(e)}",
-            exit_code=1,
-            execution_time_ms=int((time.time() - start_time) * 1000),
-            test_results=[],
-        )
-    finally:
-        # Cleanup temp file
-        try:
-            os.unlink(temp_path)
-        except:
-            pass
+        ).lower()
+        if search_query and search_query.lower() not in haystack:
+            continue
+        if category and summary["category"] != category:
+            continue
+        if subcategory and summary["subcategory"] != subcategory:
+            continue
+        serialized.append(summary)
+
+    return {
+        "filters": {
+            "categories": sorted({floor.path.title for floor in floors}),
+            "subcategories": sorted({floor.topic.title for floor in floors}),
+            "languages": ["javascript", "python"],
+            "difficulties": ["easy", "medium", "hard"],
+        },
+        "floors": serialized,
+    }
 
 
-async def evaluate_solution(
-    code: str,
+def get_floor_detail(db: Session, floor_id: int) -> dict[str, Any]:
+    floor = (
+        db.query(RoadmapNode)
+        .options(joinedload(RoadmapNode.path), joinedload(RoadmapNode.topic))
+        .filter(RoadmapNode.id == floor_id)
+        .first()
+    )
+    if not floor:
+        raise api_error(404, f"Practice floor {floor_id} not found")
+
+    subtopics = _topic_subtopics_map(db, [floor.topic_id]).get(floor.topic_id, [])
+    challenge_templates = (
+        db.query(PracticeChallenge)
+        .filter(
+            PracticeChallenge.path_id == floor.path_id,
+            PracticeChallenge.topic_id == floor.topic_id,
+        )
+        .order_by(PracticeChallenge.updated_at.desc())
+        .limit(12)
+        .all()
+    )
+    return {
+        "floor": _serialize_floor_summary(floor, subtopics, len(challenge_templates), None),
+        "related_courses": _related_courses(db, floor.topic_id),
+        "challenge_templates": [_serialize_challenge(challenge) for challenge in challenge_templates],
+    }
+
+
+def _challenge_prompt(
+    floor: RoadmapNode,
     language: str,
-    challenge_description: str,
-    test_results: list[TestCaseResult],
-) -> EvaluationResult:
-    """Evaluate a solution using LLM.
-    
-    Args:
-        code: User's submitted code
-        language: Programming language used
-        challenge_description: Description of the challenge/requirements
-        test_results: Results from test execution
-    
-    Returns:
-        EvaluationResult with feedback, hints, and score
-    """
-    # Calculate base score from test results
-    if test_results:
-        passed_count = sum(1 for tr in test_results if tr.passed)
-        test_score = int((passed_count / len(test_results)) * 100)
-    else:
-        test_score = 0
-    
-    # Build prompt for LLM
-    test_summary = "\n".join([
-        f"Test {i+1}: {'PASS' if tr.passed else 'FAIL'} - "
-        f"Input: {tr.input}, Expected: {tr.expected}, Got: {tr.actual}"
-        for i, tr in enumerate(test_results)
-    ])
-    
-    messages = [
+    difficulty: str,
+    subtopic: str | None,
+    practice_goal: str | None,
+    boss: bool,
+    related_courses: list[dict[str, Any]],
+    subtopics: list[str],
+) -> list[dict[str, str]]:
+    return [
         {
             "role": "system",
             "content": (
-                "You are a code evaluation assistant. Analyze the submitted code "
-                "against the challenge requirements and test results. "
-                "Provide constructive feedback, hints for improvement, and a score. "
-                "Respond in JSON format with keys: feedback (string), hints (array of strings), "
-                "score (0-100 integer), passed (boolean)."
+                "Generate one coding challenge in JSON only. Keys: title, summary, instructions, "
+                "explanation, entrypoint_name, starter_code, solution_code, visible_tests, hidden_tests, "
+                "hints, examples, constraints, tags, xp_reward. Tests must use args arrays and expected values."
             ),
         },
         {
             "role": "user",
             "content": (
-                f"Challenge: {challenge_description}\n\n"
-                f"Language: {language}\n\n"
-                f"Submitted Code:\n```\n{code}\n```\n\n"
-                f"Test Results:\n{test_summary}\n\n"
-                f"Base score from tests: {test_score}/100\n\n"
-                f"Evaluate this solution considering code quality, correctness, "
-                f"and adherence to requirements. Adjust the score based on code "
-                f"quality (±20 points from test score). Return JSON only."
+                f"Category: {floor.path.title}\n"
+                f"Subcategory: {floor.topic.title}\n"
+                f"Topic description: {floor.topic.description or floor.topic.title}\n"
+                f"Available subtopics: {', '.join(subtopics) or 'None'}\n"
+                f"Selected subtopic: {subtopic or 'None'}\n"
+                f"Practice goal: {practice_goal or 'General mastery'}\n"
+                f"Language: {language}\n"
+                f"Difficulty: {difficulty}\n"
+                f"Boss challenge: {'yes' if boss else 'no'}\n"
+                f"Related courses: {', '.join(course['title'] for course in related_courses[:5]) or 'None'}\n"
+                "Create a deterministic function-based challenge that can be auto-graded."
             ),
         },
     ]
-    
-    try:
-        result = await completion_json(
-            messages=messages,
-            temperature=0.3,
-            max_tokens=2048,
-            response_format={"type": "json_object"},
-        )
-        
-        feedback = result.get("feedback", "No feedback provided.")
-        hints = result.get("hints", [])
-        score = max(0, min(100, result.get("score", test_score)))
-        passed = result.get("passed", score >= 70)
-        
-        return EvaluationResult(
-            feedback=feedback,
-            hints=hints if isinstance(hints, list) else [hints],
-            score=score,
-            passed=passed,
-        )
-        
-    except Exception as e:
-        logger.error("LLM evaluation failed: %s", str(e))
-        # Fallback to test-based evaluation
-        return EvaluationResult(
-            feedback=f"Tests passed: {sum(1 for tr in test_results if tr.passed)}/{len(test_results) if test_results else 0}",
-            hints=["Review your solution against the requirements."],
-            score=test_score,
-            passed=test_score >= 70,
-        )
 
 
-def list_sessions(
+def _normalize_generated_tests(raw_tests: Any, hidden: bool) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    if not isinstance(raw_tests, list):
+        return normalized
+    for item in raw_tests:
+        if not isinstance(item, dict):
+            continue
+        args = item.get("args", [])
+        if not isinstance(args, list):
+            args = [args]
+        normalized.append({"args": args, "expected": item.get("expected"), "hidden": hidden})
+    return normalized
+
+
+async def generate_practice_challenge(
     db: Session,
-    course_id: Optional[int] = None,
-    lesson_id: Optional[int] = None,
-) -> list[PracticeSession]:
-    """List practice sessions, optionally filtered by course or lesson."""
+    floor_id: int,
+    language: str,
+    target_difficulty: str,
+    subtopic: str | None = None,
+    practice_goal: str | None = None,
+    boss: bool = False,
+) -> PracticeChallenge:
+    language = _validate_language(language)
+    target_difficulty = _validate_difficulty(target_difficulty)
+    floor = (
+        db.query(RoadmapNode)
+        .options(joinedload(RoadmapNode.path), joinedload(RoadmapNode.topic))
+        .filter(RoadmapNode.id == floor_id)
+        .first()
+    )
+    if not floor:
+        raise api_error(404, f"Practice floor {floor_id} not found")
+
+    related_courses = _related_courses(db, floor.topic_id)
+    subtopics = _topic_subtopics_map(db, [floor.topic_id]).get(floor.topic_id, [])
+    payload = await completion_json(
+        messages=_challenge_prompt(
+            floor=floor,
+            language=language,
+            difficulty=target_difficulty,
+            subtopic=subtopic,
+            practice_goal=practice_goal,
+            boss=boss,
+            related_courses=related_courses,
+            subtopics=subtopics,
+        ),
+        temperature=0.4,
+        max_tokens=4096,
+        response_format={"type": "json_object"},
+    )
+
+    challenge = PracticeChallenge(
+        path_id=floor.path_id,
+        topic_id=floor.topic_id,
+        title=str(payload.get("title") or f"{floor.topic.title} {'Boss' if boss else 'Trial'}"),
+        summary=str(payload.get("summary") or f"Practice {floor.topic.title} through a focused challenge."),
+        instructions=str(payload.get("instructions") or "Implement the requested function and satisfy the tests."),
+        explanation=payload.get("explanation"),
+        language=language,
+        difficulty=target_difficulty,
+        challenge_kind="boss" if boss else "standard",
+        entrypoint_name=str(payload.get("entrypoint_name") or "solve"),
+        starter_code=str(payload.get("starter_code") or ""),
+        solution_code=payload.get("solution_code"),
+        xp_reward=int(payload.get("xp_reward") or (250 if boss else 100)),
+        visible_tests=_normalize_generated_tests(payload.get("visible_tests"), hidden=False),
+        hidden_tests=_normalize_generated_tests(payload.get("hidden_tests"), hidden=True),
+        hints=[str(item) for item in payload.get("hints", [])] if isinstance(payload.get("hints"), list) else [],
+        examples=[item for item in payload.get("examples", []) if isinstance(item, dict)] if isinstance(payload.get("examples"), list) else [],
+        constraints=[str(item) for item in payload.get("constraints", [])] if isinstance(payload.get("constraints"), list) else [],
+        tags=[str(item) for item in payload.get("tags", [])] if isinstance(payload.get("tags"), list) else [],
+        source_prompt=practice_goal,
+        grounding_context={
+            "category": floor.path.title,
+            "subcategory": floor.topic.title,
+            "selected_subtopic": subtopic,
+            "related_courses": related_courses[:5],
+        },
+        ai_generated=True,
+    )
+    db.add(challenge)
+    db.commit()
+    db.refresh(challenge)
+    return challenge
+
+
+async def _ensure_room_challenges(
+    db: Session,
+    floor: RoadmapNode,
+    language: str,
+    difficulty: str,
+    selected_subtopic: str | None,
+    practice_goal: str | None,
+) -> tuple[list[PracticeChallenge], PracticeChallenge]:
+    standard = (
+        db.query(PracticeChallenge)
+        .filter(
+            PracticeChallenge.path_id == floor.path_id,
+            PracticeChallenge.topic_id == floor.topic_id,
+            PracticeChallenge.language == language,
+            PracticeChallenge.difficulty == difficulty,
+            PracticeChallenge.challenge_kind == "standard",
+        )
+        .order_by(PracticeChallenge.updated_at.desc())
+        .all()
+    )
+    boss = (
+        db.query(PracticeChallenge)
+        .filter(
+            PracticeChallenge.path_id == floor.path_id,
+            PracticeChallenge.topic_id == floor.topic_id,
+            PracticeChallenge.language == language,
+            PracticeChallenge.difficulty == difficulty,
+            PracticeChallenge.challenge_kind == "boss",
+        )
+        .order_by(PracticeChallenge.updated_at.desc())
+        .first()
+    )
+
+    while len(standard) < 3:
+        standard.insert(
+            0,
+            await generate_practice_challenge(
+                db,
+                floor.id,
+                language,
+                difficulty,
+                subtopic=selected_subtopic,
+                practice_goal=practice_goal,
+                boss=False,
+            ),
+        )
+    if not boss:
+        boss = await generate_practice_challenge(
+            db,
+            floor.id,
+            language,
+            difficulty,
+            subtopic=selected_subtopic,
+            practice_goal=practice_goal,
+            boss=True,
+        )
+    return standard[:3], boss
+
+
+def _base_encounters_cleared(room: PracticeRoom) -> bool:
+    base_encounters = [encounter for encounter in room.encounters if encounter.encounter_type == "standard"]
+    return bool(base_encounters) and all(encounter.status == "passed" for encounter in base_encounters)
+
+
+def _boss_available(room: PracticeRoom) -> bool:
+    return not room.boss_defeated and room.attempt_tokens >= room.max_attempt_tokens and _base_encounters_cleared(room)
+
+
+def _refresh_room_state(room: PracticeRoom) -> None:
+    boss = next((encounter for encounter in room.encounters if encounter.encounter_type == "boss"), None)
+    if boss:
+        if room.boss_defeated:
+            boss.status = "passed"
+        elif _boss_available(room):
+            boss.status = "available"
+        elif boss.attempts_used > 0:
+            boss.status = "failed"
+        else:
+            boss.status = "locked"
+
+    if room.boss_defeated:
+        room.status = "completed"
+    elif room.attempt_tokens <= 0:
+        room.status = "remediation_required"
+    else:
+        room.status = "active"
+
+
+def _remediation_actions(db: Session, room: PracticeRoom) -> list[dict[str, Any]]:
+    actions = [
+        {
+            "type": "revisit_floor",
+            "label": "Revisit Floor Overview",
+            "description": f"Review {room.floor.topic.title} concepts and challenge notes.",
+            "route": "/practice",
+            "topic_id": room.floor.topic_id,
+            "course_id": None,
+        }
+    ]
+    for course in _related_courses(db, room.floor.topic_id)[:2]:
+        actions.append(
+            {
+                "type": "revisit_course",
+                "label": f"Study {course['title']}",
+                "description": "Use the related course to rebuild this concept before another boss attempt.",
+                "route": f"/course/{course['id']}",
+                "topic_id": room.floor.topic_id,
+                "course_id": course["id"],
+            }
+        )
+    if not any(action["type"] == "revisit_course" for action in actions):
+        actions.append(
+            {
+                "type": "generate_course",
+                "label": "Generate Micro-Course",
+                "description": f"Forge a focused learning path around {room.floor.topic.title}.",
+                "route": f"/roadmap/{room.floor.path_id}",
+                "topic_id": room.floor.topic_id,
+                "course_id": None,
+            }
+        )
+    actions.append(
+        {
+            "type": "spawn_more",
+            "label": "Spawn More Encounters",
+            "description": "Generate one or three more encounters to regain lost attempt tokens.",
+            "route": None,
+            "topic_id": room.floor.topic_id,
+            "course_id": None,
+        }
+    )
+    return actions
+
+
+def _serialize_room(room: PracticeRoom, db: Session) -> dict[str, Any]:
+    _refresh_room_state(room)
+    return {
+        "id": room.id,
+        "floor_id": room.floor_id,
+        "title": room.title,
+        "category": room.floor.path.title,
+        "subcategory": room.floor.topic.title,
+        "language": room.language,
+        "difficulty": room.difficulty,
+        "selected_subtopic": room.selected_subtopic,
+        "practice_goal": room.practice_goal,
+        "attempt_tokens": room.attempt_tokens,
+        "max_attempt_tokens": room.max_attempt_tokens,
+        "status": room.status,
+        "boss_available": _boss_available(room),
+        "boss_defeated": room.boss_defeated,
+        "encounters": [
+            {
+                "id": encounter.id,
+                "encounter_order": encounter.encounter_order,
+                "encounter_type": encounter.encounter_type,
+                "status": encounter.status,
+                "attempts_used": encounter.attempts_used,
+                "challenge": _serialize_challenge(encounter.challenge),
+            }
+            for encounter in room.encounters
+        ],
+        "remediation_actions": _remediation_actions(db, room) if room.status == "remediation_required" else [],
+    }
+
+
+def get_room(db: Session, room_id: str) -> PracticeRoom:
+    room = (
+        db.query(PracticeRoom)
+        .options(
+            joinedload(PracticeRoom.floor).joinedload(RoadmapNode.path),
+            joinedload(PracticeRoom.floor).joinedload(RoadmapNode.topic),
+            selectinload(PracticeRoom.encounters).joinedload(PracticeEncounter.challenge),
+        )
+        .filter(PracticeRoom.id == room_id)
+        .first()
+    )
+    if not room:
+        raise api_error(404, f"Practice room {room_id} not found")
+    _refresh_room_state(room)
+    return room
+
+
+async def create_room(
+    db: Session,
+    floor_id: int,
+    language: str,
+    difficulty: str,
+    selected_subtopic: str | None = None,
+    practice_goal: str | None = None,
+) -> dict[str, Any]:
+    language = _validate_language(language)
+    difficulty = _validate_difficulty(difficulty)
+    floor = (
+        db.query(RoadmapNode)
+        .options(joinedload(RoadmapNode.path), joinedload(RoadmapNode.topic))
+        .filter(RoadmapNode.id == floor_id)
+        .first()
+    )
+    if not floor:
+        raise api_error(404, f"Practice floor {floor_id} not found")
+
+    standard, boss = await _ensure_room_challenges(db, floor, language, difficulty, selected_subtopic, practice_goal)
+
+    room = PracticeRoom(
+        floor_id=floor.id,
+        title=f"{floor.topic.title} Challenge Room",
+        language=language,
+        difficulty=difficulty,
+        selected_subtopic=selected_subtopic,
+        practice_goal=practice_goal,
+        attempt_tokens=3,
+        max_attempt_tokens=3,
+        status="active",
+    )
+    db.add(room)
+    db.flush()
+    for index, challenge in enumerate(standard, start=1):
+        db.add(
+            PracticeEncounter(
+                room_id=room.id,
+                challenge_id=challenge.id,
+                encounter_order=index,
+                encounter_type="standard",
+                status="available",
+            )
+        )
+    db.add(
+        PracticeEncounter(
+            room_id=room.id,
+            challenge_id=boss.id,
+            encounter_order=4,
+            encounter_type="boss",
+            status="locked",
+        )
+    )
+    db.commit()
+    return _serialize_room(get_room(db, room.id), db)
+
+
+async def spawn_room_encounters(db: Session, room_id: str, count: int) -> dict[str, Any]:
+    if count not in {1, 3}:
+        raise api_error(422, "Spawn count must be 1 or 3")
+    room = get_room(db, room_id)
+    next_order = max(encounter.encounter_order for encounter in room.encounters) + 1
+    for offset in range(count):
+        challenge = await generate_practice_challenge(
+            db,
+            room.floor_id,
+            room.language,
+            room.difficulty,
+            subtopic=room.selected_subtopic,
+            practice_goal=room.practice_goal,
+            boss=False,
+        )
+        challenge.challenge_kind = "spawned"
+        db.add(challenge)
+        db.flush()
+        db.add(
+            PracticeEncounter(
+                room_id=room.id,
+                challenge_id=challenge.id,
+                encounter_order=next_order + offset,
+                encounter_type="spawned",
+                status="available",
+            )
+        )
+    db.commit()
+    return _serialize_room(get_room(db, room.id), db)
+
+
+async def submit_encounter(db: Session, encounter_id: str, code: str) -> dict[str, Any]:
+    encounter = (
+        db.query(PracticeEncounter)
+        .options(joinedload(PracticeEncounter.challenge))
+        .filter(PracticeEncounter.id == encounter_id)
+        .first()
+    )
+    if not encounter:
+        raise api_error(404, f"Practice encounter {encounter_id} not found")
+
+    room = get_room(db, encounter.room_id)
+    encounter = next(item for item in room.encounters if item.id == encounter_id)
+
+    if encounter.encounter_type == "boss" and not _boss_available(room):
+        raise api_error(409, "Boss encounter is locked until the room is back at full attempt tokens")
+
+    tests = [
+        StructuredTestCase(args=test_case.get("args", []), expected=test_case.get("expected"), hidden=False)
+        for test_case in encounter.challenge.visible_tests or []
+    ] + [
+        StructuredTestCase(args=test_case.get("args", []), expected=test_case.get("expected"), hidden=True)
+        for test_case in encounter.challenge.hidden_tests or []
+    ]
+
+    execution = await execute_structured_code(
+        code=code,
+        language=encounter.challenge.language,
+        entrypoint_name=encounter.challenge.entrypoint_name,
+        test_cases=tests,
+    )
+    passed = bool(execution.test_results) and all(result.passed for result in execution.test_results)
+    visible_results = [result.to_dict() for result in execution.test_results if not result.is_hidden]
+    hidden_results = [result.to_dict() for result in execution.test_results if result.is_hidden]
+
+    previously_passed = encounter.status == "passed"
+    encounter.attempts_used += 1
+    if passed:
+        encounter.status = "passed"
+        if encounter.encounter_type == "boss":
+            room.boss_defeated = True
+        elif not previously_passed:
+            room.attempt_tokens = min(room.max_attempt_tokens, room.attempt_tokens + 1)
+    else:
+        encounter.status = "failed"
+        if not previously_passed:
+            room.attempt_tokens = max(0, room.attempt_tokens - 1)
+
+    _refresh_room_state(room)
+    room.updated_at = _utc_now()
+    encounter.updated_at = _utc_now()
+
+    submission = PracticeSubmission(
+        room_id=room.id,
+        encounter_id=encounter.id,
+        code=code,
+        language=encounter.challenge.language,
+        stdout=execution.stdout,
+        stderr=execution.stderr,
+        exit_code=execution.exit_code,
+        execution_time_ms=execution.execution_time_ms,
+        passed=passed,
+        score=100 if passed else int((sum(1 for result in execution.test_results if result.passed) / len(execution.test_results)) * 100) if execution.test_results else 0,
+        visible_results=visible_results,
+        hidden_results=hidden_results,
+    )
+    db.add(submission)
+    db.commit()
+
+    return {
+        "id": submission.id,
+        "encounter_id": submission.encounter_id,
+        "room_id": submission.room_id,
+        "stdout": submission.stdout or "",
+        "stderr": submission.stderr or "",
+        "exit_code": submission.exit_code,
+        "execution_time_ms": submission.execution_time_ms,
+        "passed": submission.passed,
+        "score": submission.score,
+        "visible_test_results": visible_results,
+        "hidden_test_summary": {
+            "total": len(hidden_results),
+            "passed": sum(1 for result in hidden_results if result.get("passed")),
+        },
+        "room": _serialize_room(get_room(db, room.id), db),
+    }
+
+
+def list_sessions(db: Session, course_id: Optional[int] = None, lesson_id: Optional[int] = None) -> list[PracticeSession]:
     query = db.query(PracticeSession)
     if course_id:
         query = query.filter(PracticeSession.course_id == course_id)
@@ -428,7 +720,6 @@ def list_sessions(
 
 
 def get_session(db: Session, session_id: str) -> Optional[PracticeSession]:
-    """Get a practice session by ID."""
     return db.query(PracticeSession).filter(PracticeSession.id == session_id).first()
 
 
@@ -442,7 +733,6 @@ def create_session(
     output: Optional[str] = None,
     status: str = "in_progress",
 ) -> PracticeSession:
-    """Create a new practice session."""
     session = PracticeSession(
         title=title,
         language=language,
@@ -465,18 +755,15 @@ def update_session(
     output: Optional[str] = None,
     status: Optional[str] = None,
 ) -> Optional[PracticeSession]:
-    """Update an existing practice session."""
     session = get_session(db, session_id)
     if not session:
         return None
-    
     if code is not None:
         session.code = code
     if output is not None:
         session.output = output
     if status is not None:
         session.status = status
-    
     session.updated_at = _utc_now()
     db.commit()
     db.refresh(session)
@@ -484,7 +771,6 @@ def update_session(
 
 
 def delete_session(db: Session, session_id: str) -> bool:
-    """Delete a practice session. Returns True if deleted."""
     session = get_session(db, session_id)
     if not session:
         return False

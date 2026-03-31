@@ -6,6 +6,7 @@ export type CourseStatus = 'generating' | 'ready' | 'error';
 export interface CourseLesson {
   id: number;
   course_id: number;
+  source_section_id: number | null;
   title: string;
   content_markdown: string | null;
   sort_order: number;
@@ -18,8 +19,10 @@ export interface Course {
   id: number;
   title: string;
   description: string | null;
-  topic_id: number;
+  topic_id: number | null;
+  source_document_id: number | null;
   status: CourseStatus;
+  generation_mode: string;
   total_lessons: number;
   total_xp: number;
   created_at: string | null;

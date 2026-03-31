@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ProgressSummary,
   RoadmapProgress,
@@ -55,6 +55,16 @@ export function useRoadmapProgress(pathId: string) {
     queryKey: ['progress', 'roadmap', pathId],
     queryFn: () => fetchRoadmapProgress(pathId),
     enabled: !!pathId,
+  });
+}
+
+export function useRoadmapProgresses(pathIds: Array<number | string>) {
+  return useQueries({
+    queries: pathIds.map((pathId) => ({
+      queryKey: ['progress', 'roadmap', String(pathId)],
+      queryFn: () => fetchRoadmapProgress(String(pathId)),
+      enabled: !!pathId,
+    })),
   });
 }
 

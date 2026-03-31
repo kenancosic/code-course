@@ -1,4 +1,4 @@
-"""LLM client wrapper using litellm with OpenRouter."""
+"""LLM client wrapper using litellm with OpenAI."""
 import json
 import logging
 from typing import AsyncGenerator
@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 import litellm
 
 from server.config import get_settings
+from server.errors import AIConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ async def completion(
     response_format: dict | None = None,
     **kwargs,
 ):
-    """Send a completion request through litellm -> OpenRouter.
+    """Send a completion request through litellm -> OpenAI.
 
     Args:
         messages: Chat messages list
@@ -40,9 +41,10 @@ async def completion(
     settings = get_settings()
     resolved_model = model or settings.LLM_DEFAULT_MODEL
 
-    # Prepend openrouter/ prefix if not already present
-    if not resolved_model.startswith("openrouter/"):
-        resolved_model = f"openrouter/{resolved_model}"
+    if not settings.OPENAI_API_KEY:
+        raise AIConfigurationError(
+            "AI is not configured. Set OPENAI_API_KEY to use this feature."
+        )
 
     params = {
         "model": resolved_model,
@@ -50,7 +52,7 @@ async def completion(
         "stream": stream,
         "temperature": temperature,
         "max_tokens": max_tokens,
-        "api_key": settings.OPENROUTER_API_KEY,
+        "api_key": settings.OPENAI_API_KEY,
         **kwargs,
     }
     if response_format:

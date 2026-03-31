@@ -10,9 +10,13 @@ class Topic(Base):
     description = Column(Text, nullable=True)
     ai_generated = Column(Boolean, default=False)
     keywords = Column(String(255), nullable=True)
+    source_document_id = Column(Integer, ForeignKey("source_documents.id"), nullable=True)
+    source_section_id = Column(Integer, ForeignKey("document_sections.id"), nullable=True)
 
     courses = relationship("Course", back_populates="topic")
     roadmap_nodes = relationship("RoadmapNode", back_populates="topic")
+    source_document = relationship("SourceDocument", back_populates="topics", foreign_keys=[source_document_id])
+    source_section = relationship("DocumentSection", back_populates="topics", foreign_keys=[source_section_id])
     
     connections_out = relationship("TopicConnection", foreign_keys="[TopicConnection.from_topic_id]", back_populates="from_topic")
     connections_in = relationship("TopicConnection", foreign_keys="[TopicConnection.to_topic_id]", back_populates="to_topic")

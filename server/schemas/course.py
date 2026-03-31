@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 class LessonBase(BaseModel):
     title: str
+    source_section_id: Optional[int] = None
     content_markdown: Optional[str] = None
     task_type: Optional[str] = None
     task_content: Optional[str] = None
@@ -27,8 +28,10 @@ class LessonResponse(LessonBase):
 class CourseBase(BaseModel):
     title: str
     description: Optional[str] = None
-    topic_id: int
-    status: str = "locked"
+    topic_id: Optional[int] = None
+    source_document_id: Optional[int] = None
+    status: str = "generating"
+    generation_mode: str = "topic"
     total_lessons: int = 0
     total_xp: int = 0
 

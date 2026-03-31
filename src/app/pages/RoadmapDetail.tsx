@@ -6,7 +6,6 @@ import {
   Circle,
   Loader2,
   Sparkles,
-  Lock,
   Play,
   Trophy,
   ChevronRight,
@@ -45,7 +44,7 @@ import {
 } from '../components/ui/sheet';
 
 // Node status types
-type NodeStatus = 'locked' | 'available' | 'in-progress' | 'completed';
+type NodeStatus = 'recommended' | 'available' | 'in-progress' | 'completed';
 
 interface NodeWithStatus extends RoadmapNode {
   status: NodeStatus;
@@ -96,8 +95,8 @@ function getStatusIcon(status: NodeStatus) {
       return Play;
     case 'available':
       return Circle;
-    case 'locked':
-      return Lock;
+    case 'recommended':
+      return Shield;
   }
 }
 
@@ -109,8 +108,8 @@ function getStatusColor(status: NodeStatus): string {
       return 'text-amber-400 border-amber-500/50 bg-amber-500/10';
     case 'available':
       return 'text-blue-400 border-blue-500/50 bg-blue-500/10';
-    case 'locked':
-      return 'text-slate-500 border-slate-600/50 bg-slate-700/20';
+    case 'recommended':
+      return 'text-violet-200 border-violet-500/40 bg-violet-500/10';
   }
 }
 
@@ -122,8 +121,8 @@ function getStatusGlow(status: NodeStatus): string {
       return 'shadow-amber-500/20';
     case 'available':
       return 'shadow-blue-500/20';
-    case 'locked':
-      return '';
+    case 'recommended':
+      return 'shadow-violet-500/20';
   }
 }
 
@@ -166,16 +165,19 @@ export function RoadmapDetail() {
       const prerequisites = connectionMap.get(node.id) || [];
 
       // Determine status based on roadmap availability and course lifecycle
-      let status: NodeStatus = node.status === 'locked' ? 'locked' : 'available';
+      let status: NodeStatus = node.status === 'locked' ? 'recommended' : 'available';
       let nodeProgress = 0;
 
-      if (node.status !== 'locked' && course) {
+      if (node.status === 'completed') {
+        status = 'completed';
+        nodeProgress = 100;
+      } else if (course) {
         if (course.status === 'generating') {
           status = 'in-progress';
           nodeProgress = 35;
         } else if (course.status === 'ready') {
-          status = 'available';
-          nodeProgress = 100;
+          status = 'in-progress';
+          nodeProgress = 70;
         } else {
           status = 'available';
         }
@@ -196,7 +198,7 @@ export function RoadmapDetail() {
   useEffect(() => {
     if (nodesWithStatus.length > 0 && !hasInitialized.current) {
       const availableNode = nodesWithStatus.find(
-        (n) => n.status === 'available' || n.status === 'in-progress'
+        (n) => n.status === 'available' || n.status === 'in-progress' || n.status === 'recommended'
       );
       if (availableNode) {
         // Defer state updates to avoid cascading renders
@@ -308,8 +310,9 @@ export function RoadmapDetail() {
     const completed = nodesWithStatus.filter((n) => n.status === 'completed').length;
     const inProgress = nodesWithStatus.filter((n) => n.status === 'in-progress').length;
     const available = nodesWithStatus.filter((n) => n.status === 'available').length;
+    const recommended = nodesWithStatus.filter((n) => n.status === 'recommended').length;
     const totalXP = nodesWithStatus.reduce((sum, n) => sum + (n.course?.total_xp || 0), 0);
-    return { completed, inProgress, available, totalXP, total: nodesWithStatus.length };
+    return { completed, inProgress, available, recommended, totalXP, total: nodesWithStatus.length };
   }, [nodesWithStatus]);
 
   const completionPercentage =
@@ -317,7 +320,9 @@ export function RoadmapDetail() {
 
   // Get next recommended node
   const nextRecommendedNode = useMemo(() => {
-    return nodesWithStatus.find((n) => n.status === 'available' || n.status === 'in-progress');
+    return nodesWithStatus.find(
+      (n) => n.status === 'available' || n.status === 'in-progress' || n.status === 'recommended'
+    );
   }, [nodesWithStatus]);
 
   if (roadmapLoading) {
@@ -377,71 +382,50 @@ export function RoadmapDetail() {
           </div>
 
           {/* Stats Bar */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 px-4 py-3 bg-slate-900/60 rounded-xl border border-slate-800/80">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 px-4 py-4 bg-slate-900/60 rounded-xl border border-slate-800/80">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-400" />
                 <span className="text-xl sm:text-2xl font-bold text-white">
                   {completionPercentage}%
                 </span>
               </div>
-              <div className="flex flex-col flex-1 sm:flex-initial">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-500 uppercase tracking-wider">
-                    Path Complete
-                  </span>
-                </div>
-                <div className="w-full sm:w-32 mt-1">
-                  <Progress value={completionPercentage} className="h-2" />
-                </div>
-              </div>
+              <p className="mt-2 text-xs uppercase tracking-wider text-slate-400">Path Complete</p>
+              <Progress value={completionPercentage} className="h-2 mt-3" />
             </div>
 
-            <div className="h-8 w-px bg-slate-700 hidden sm:block" />
-
-            <div className="flex items-center gap-6 sm:gap-6 w-full sm:w-auto">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                <div className="flex flex-col">
-                  <span className="text-base sm:text-lg font-bold text-white">
-                    {stats.completed}/{stats.total}
-                  </span>
-                  <span className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wider">
-                    Quests Done
-                  </span>
-                </div>
+                <span className="text-xl sm:text-2xl font-bold text-white">
+                  {stats.completed}/{stats.total}
+                </span>
               </div>
+              <p className="mt-2 text-xs uppercase tracking-wider text-slate-400">
+                Quests Completed
+              </p>
+            </div>
 
-              <div className="h-8 w-px bg-slate-700 hidden sm:block" />
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="flex items-center gap-2">
+                <Play className="w-5 h-5 text-amber-400" />
+                <span className="text-xl sm:text-2xl font-bold text-white">
+                  {stats.inProgress + stats.available + stats.recommended}
+                </span>
+              </div>
+              <p className="mt-2 text-xs uppercase tracking-wider text-slate-400">
+                Open For Exploration
+              </p>
+            </div>
 
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
               <div className="flex items-center gap-2">
                 <Flame className="w-5 h-5 text-orange-400" />
-                <div className="flex flex-col">
-                  <span className="text-base sm:text-lg font-bold text-white">
-                    {stats.totalXP.toLocaleString()}
-                  </span>
-                  <span className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wider">
-                    XP Earned
-                  </span>
-                </div>
+                <span className="text-xl sm:text-2xl font-bold text-white">
+                  {stats.totalXP.toLocaleString()}
+                </span>
               </div>
-
-              {stats.inProgress > 0 && (
-                <>
-                  <div className="h-8 w-px bg-slate-700 hidden sm:block" />
-                  <div className="flex items-center gap-2">
-                    <Play className="w-5 h-5 text-amber-400" />
-                    <div className="flex flex-col">
-                      <span className="text-base sm:text-lg font-bold text-white">
-                        {stats.inProgress}
-                      </span>
-                      <span className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wider">
-                        In Progress
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
+              <p className="mt-2 text-xs uppercase tracking-wider text-slate-400">XP Pool</p>
             </div>
           </div>
         </div>
@@ -467,7 +451,7 @@ export function RoadmapDetail() {
               <ScrollText className="w-5 h-5" />
             </Button>
 
-            <div className="flex flex-col items-center p-8 gap-12 sm:gap-16 min-h-full">
+            <div className="flex flex-col items-center p-4 sm:p-8 gap-10 sm:gap-16 min-h-full">
               {nodesWithStatus.length === 0 && (
                 <div className="flex items-center justify-center text-slate-500 h-64">
                   <p>No nodes found for this path.</p>
@@ -518,7 +502,7 @@ export function RoadmapDetail() {
                               onClick={() => handleSelectNode(node)}
                               className={cn(
                                 'relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 backdrop-blur-sm transition-all duration-300 z-10 p-3 text-center group',
-                                'w-full sm:w-48 h-20 shrink-0', // responsive width
+                                'w-full sm:w-[14rem] min-h-[5.5rem] shrink-0',
                                 'hover:scale-105 hover:-translate-y-1',
                                 statusColor,
                                 isSelected &&
@@ -526,11 +510,8 @@ export function RoadmapDetail() {
                                     'ring-2 ring-offset-2 ring-offset-slate-950 scale-105 shadow-xl',
                                     statusGlow
                                   ),
-                                !isSelected && cn('shadow-lg hover:shadow-xl', tierGlow),
-                                node.status === 'locked' &&
-                                  'opacity-60 cursor-not-allowed hover:scale-100 hover:translate-y-0'
+                                !isSelected && cn('shadow-lg hover:shadow-xl', tierGlow)
                               )}
-                              disabled={node.status === 'locked'}
                             >
                               {/* Progress bar for in-progress */}
                               {node.status === 'in-progress' && (
@@ -549,15 +530,10 @@ export function RoadmapDetail() {
                                     node.status === 'completed' && 'bg-emerald-500/20',
                                     node.status === 'in-progress' && 'bg-amber-500/20',
                                     node.status === 'available' && 'bg-blue-500/20',
-                                    node.status === 'locked' && 'bg-slate-700/30'
+                                    node.status === 'recommended' && 'bg-violet-500/15'
                                   )}
                                 >
-                                  <StatusIcon
-                                    className={cn(
-                                      'w-4 h-4',
-                                      node.status === 'locked' && 'text-slate-500'
-                                    )}
-                                  />
+                                  <StatusIcon className="w-4 h-4" />
                                 </div>
 
                                 <div className="flex-1 text-left min-w-0">
@@ -569,6 +545,11 @@ export function RoadmapDetail() {
                                       {node.progress}%
                                     </span>
                                   )}
+                                  {node.status === 'recommended' && (
+                                    <span className="text-[10px] text-violet-200 font-medium">
+                                      Open for deep dive
+                                    </span>
+                                  )}
                                 </div>
 
                                 {node.course && (
@@ -578,12 +559,19 @@ export function RoadmapDetail() {
 
                               {/* Hover quick actions */}
                               <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex gap-1 pointer-events-none">
-                                {node.status === 'available' && !node.course && (
+                                {(node.status === 'available' || node.status === 'recommended') &&
+                                  !node.course && (
                                   <Badge
                                     variant="secondary"
-                                    className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-500/30 whitespace-nowrap"
+                                    className={cn(
+                                      'text-[10px] whitespace-nowrap',
+                                      node.status === 'recommended'
+                                        ? 'bg-violet-500/20 text-violet-200 border-violet-500/30'
+                                        : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                                    )}
                                   >
-                                    <Sparkles className="w-3 h-3 mr-1" /> Generate
+                                    <Sparkles className="w-3 h-3 mr-1" />
+                                    {node.status === 'recommended' ? 'Deep Dive' : 'Generate'}
                                   </Badge>
                                 )}
                                 {node.course && (
@@ -606,9 +594,9 @@ export function RoadmapDetail() {
                             <div className="space-y-1">
                               <p className="font-semibold">{node.topic.title}</p>
                               <p className="text-xs text-slate-400">Tier {node.tier}</p>
-                              {node.status === 'locked' && node.prerequisites.length > 0 && (
+                              {node.status === 'recommended' && node.prerequisites.length > 0 && (
                                 <p className="text-xs text-slate-500">
-                                  Requires:{' '}
+                                  Suggested before diving deeper:{' '}
                                   {node.prerequisites
                                     .map((p) => roadmap.nodes.find((n) => n.id === p)?.topic.title)
                                     .join(', ')}
@@ -644,7 +632,7 @@ export function RoadmapDetail() {
             className={cn(
               'fixed top-0 right-0 bottom-0 z-50 lg:static lg:z-auto', // Fixed on mobile, static on desktop
               'shrink-0 flex flex-col transition-transform lg:transition-all duration-300 overflow-hidden',
-              'w-[85vw] max-w-sm lg:w-96', // Width for mobile and desktop
+              'w-full sm:w-[85vw] sm:max-w-sm lg:w-96',
               'bg-slate-900 border-l border-slate-700/50 lg:border-none shadow-2xl lg:shadow-none',
               isPanelOpen
                 ? 'translate-x-0 lg:opacity-100'
@@ -681,7 +669,8 @@ export function RoadmapDetail() {
                         selectedNode.status === 'in-progress' &&
                           'border-amber-500/50 text-amber-400',
                         selectedNode.status === 'available' && 'border-blue-500/50 text-blue-400',
-                        selectedNode.status === 'locked' && 'border-slate-600 text-slate-500'
+                        selectedNode.status === 'recommended' &&
+                          'border-violet-500/40 text-violet-200'
                       )}
                     >
                       {selectedNode.status === 'completed' && (
@@ -689,7 +678,9 @@ export function RoadmapDetail() {
                       )}
                       {selectedNode.status === 'in-progress' && <Play className="w-3 h-3 mr-1" />}
                       {selectedNode.status === 'available' && <Circle className="w-3 h-3 mr-1" />}
-                      {selectedNode.status === 'locked' && <Lock className="w-3 h-3 mr-1" />}
+                      {selectedNode.status === 'recommended' && (
+                        <Shield className="w-3 h-3 mr-1" />
+                      )}
                       {selectedNode.status.replace('-', ' ').toUpperCase()}
                     </Badge>
                     <Badge variant="secondary" className="text-xs">
@@ -727,7 +718,7 @@ export function RoadmapDetail() {
                   {selectedNode.prerequisites.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                        <Shield className="w-3 h-3" /> Prerequisites
+                        <Shield className="w-3 h-3" /> Suggested Foundations
                       </h4>
                       <div className="space-y-1">
                         {selectedNode.prerequisites.map((prereqId) => {
@@ -740,13 +731,13 @@ export function RoadmapDetail() {
                                 'flex items-center gap-2 text-sm py-1 px-2 rounded',
                                 isCompleted
                                   ? 'text-emerald-400 bg-emerald-500/10'
-                                  : 'text-slate-500 bg-slate-800/50'
+                                  : 'text-slate-300 bg-slate-800/50'
                               )}
                             >
                               {isCompleted ? (
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                               ) : (
-                                <Lock className="w-3 h-3 shrink-0" />
+                                <Shield className="w-3 h-3 shrink-0 text-violet-300" />
                               )}
                               <span className="truncate">{prereq?.topic.title || 'Unknown'}</span>
                             </div>
@@ -816,23 +807,26 @@ export function RoadmapDetail() {
                               </>
                             )}
                           </Button>
-                        ) : selectedNode.status !== 'locked' ? (
-                          <Button
-                            onClick={handleGenerateCourse}
-                            variant="fantasy"
-                            className="w-full justify-center gap-2 relative overflow-hidden group"
-                          >
-                            <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-                            <Sparkles className="w-4 h-4" /> Generate Course
-                          </Button>
                         ) : (
-                          <Button
-                            disabled
-                            variant="outline"
-                            className="w-full justify-center gap-2 border-slate-700 text-slate-500"
-                          >
-                            <Lock className="w-4 h-4" /> Complete Prerequisites
-                          </Button>
+                          <div className="space-y-3">
+                            <Button
+                              onClick={handleGenerateCourse}
+                              variant="fantasy"
+                              className="w-full justify-center gap-2 relative overflow-hidden group"
+                            >
+                              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                              <Sparkles className="w-4 h-4" />
+                              {selectedNode.status === 'recommended'
+                                ? 'Generate Deep Dive Course'
+                                : 'Generate Course'}
+                            </Button>
+                            {selectedNode.status === 'recommended' && (
+                              <p className="text-xs text-slate-400 leading-relaxed">
+                                You can start here immediately. The topics above are guidance, not a
+                                hard lock.
+                              </p>
+                            )}
+                          </div>
                         )}
                       </>
                     )}
@@ -978,11 +972,12 @@ export function RoadmapDetail() {
                 </Button>
                 <Button
                   onClick={handleGenerateFromSubtopics}
-                  disabled={selectedSubtopics.size === 0}
                   className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Course ({selectedSubtopics.size + 1} topics)
+                  {selectedSubtopics.size === 0
+                    ? 'Generate Course (main topic only)'
+                    : `Generate Course (${selectedSubtopics.size + 1} topics)`}
                 </Button>
               </div>
             )}
