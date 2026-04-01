@@ -36,6 +36,7 @@ export function CourseView() {
   const { data: progress } = useCourseProgress(courseId || '');
   const completeLesson = useCompleteLesson();
   const evaluateLesson = useEvaluateLesson();
+  const courseProgress = course?.user_progress;
 
   const lessons = useMemo(
     () => (course ? [...course.lessons].sort((a, b) => a.sort_order - b.sort_order) : []),
@@ -54,7 +55,8 @@ export function CourseView() {
   const completedLessonIds = new Set((progress?.lessons ?? []).filter((lesson) => lesson.completed).map((lesson) => lesson.lesson_id));
   const currentIndex = activeLesson ? lessons.findIndex((lesson) => lesson.id === activeLesson.id) : 0;
   const estimatedMinutes = estimateMinutes(activeLesson?.content_markdown ?? null);
-  const progressPercentage = progress?.completion_percentage ?? 0;
+  const progressPercentage = courseProgress?.completion_percentage ?? progress?.completion_percentage ?? 0;
+  const completedLessonsCount = courseProgress?.completed_lessons ?? progress?.completed_lessons ?? 0;
 
   const selectLesson = (lessonId: number) => {
     setActiveLessonId(lessonId);
@@ -243,11 +245,11 @@ export function CourseView() {
   );
 
   return (
-    <LearningWorkspace
+      <LearningWorkspace
       header={{
         title: course.title,
         subtitle: course.description ?? 'Shared workspace for lessons and practice.',
-        meta: <><Badge variant="outline">{progress?.completed_lessons ?? 0}/{progress?.total_lessons ?? lessons.length} lessons</Badge><Badge variant="outline">{course.total_xp} XP</Badge><Badge className="bg-chart-1/20 text-chart-1 border-chart-1/30">{progressPercentage}% complete</Badge></>,
+        meta: <><Badge variant="outline">{completedLessonsCount}/{progress?.total_lessons ?? lessons.length} lessons</Badge><Badge variant="outline">{course.total_xp} XP</Badge><Badge className="bg-chart-1/20 text-chart-1 border-chart-1/30">{progressPercentage}% complete</Badge></>,
         actions: <Button asChild variant="outline"><Link to="/roadmap"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>,
       }}
       railTitle="Course Content"

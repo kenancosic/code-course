@@ -1,7 +1,7 @@
 ---
-name: architecture-steward
+
+## name: architecture-steward
 description: Architecture design, review, refactoring guidance, and ongoing system stewardship for software applications and platforms. Use when Codex needs to shape or maintain system structure, module boundaries, service interactions, scaling plans, architecture decision records, dependency direction, integration seams, or technical debt control across code, diagrams, ADRs, and architecture documentation.
----
 
 # Architecture Steward
 
@@ -105,3 +105,4 @@ Validate architecture recommendations against:
 - Operational constraints and deployment model
 - Team ownership and likely adoption cost
 - Migration safety and rollback options
+

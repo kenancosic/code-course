@@ -11,6 +11,7 @@ from server.errors import api_error
 from server.llm.client import completion_json
 from server.models import (
     Course,
+    CourseEnrollment,
     PracticeChallenge,
     PracticeEncounter,
     PracticeRoom,
@@ -20,6 +21,7 @@ from server.models import (
     Topic,
     TopicConnection,
 )
+from server.services import progression_service
 from server.services.practice_execution import (
     StructuredTestCase,
     execute_structured_code,
@@ -94,6 +96,7 @@ def _topic_subtopics_map(db: Session, topic_ids: list[int]) -> dict[int, list[st
 
 
 def _related_courses(db: Session, topic_id: int) -> list[dict[str, Any]]:
+    profile = progression_service.get_or_create_profile(db)
     return [
         {
             "id": course.id,
@@ -102,7 +105,11 @@ def _related_courses(db: Session, topic_id: int) -> list[dict[str, Any]]:
             "total_lessons": course.total_lessons,
         }
         for course in db.query(Course)
-        .filter(Course.topic_id == topic_id)
+        .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
+        .filter(
+            Course.topic_id == topic_id,
+            CourseEnrollment.user_id == profile.id,
+        )
         .order_by(Course.created_at.desc())
         .all()
     ]

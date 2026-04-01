@@ -1,7 +1,8 @@
 """Course and lesson schemas."""
-from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LessonBase(BaseModel):
@@ -36,6 +37,16 @@ class CourseBase(BaseModel):
     total_xp: int = 0
 
 
+class CourseUserProgress(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    completed_lessons: int = 0
+    completion_percentage: float = 0.0
+    started_at: Optional[datetime] = None
+    last_accessed_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
 class CourseCreate(CourseBase):
     pass
 
@@ -45,13 +56,15 @@ class CourseResponse(CourseBase):
 
     id: int
     created_at: Optional[datetime] = None
-    lessons: List[LessonResponse] = []
+    lessons: List[LessonResponse] = Field(default_factory=list)
+    user_progress: CourseUserProgress = Field(default_factory=CourseUserProgress)
 
 
 class GenerateCourseRequest(BaseModel):
     """Request body for POST /api/courses/generate."""
     topic_ids: List[int]
     model: Optional[str] = None
+
 
 class EvaluateTaskRequest(BaseModel):
     answer: str

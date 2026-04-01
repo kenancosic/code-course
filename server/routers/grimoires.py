@@ -63,7 +63,7 @@ async def create_grimoire_course(
     request: CreateGrimoireCourseRequest,
     db: Session = Depends(get_db),
 ):
-    """Forge a dedicated course from a processed grimoire."""
+    """Forge a dedicated course from a processed grimoire and enroll the current user."""
     try:
         course = await grimoire_service.create_course_from_document(
             db,
@@ -83,7 +83,7 @@ async def preview_grimoire_projection(
     request: RoadmapProjectionRequest,
     db: Session = Depends(get_db),
 ):
-    """Preview where selected sections would land in existing roadmap paths."""
+    """Preview where selected sections would land in visible roadmap paths."""
     if not request.section_ids:
         raise api_error(status.HTTP_400_BAD_REQUEST, "Select at least one section to preview")
     try:
@@ -99,7 +99,7 @@ async def apply_grimoire_projection(
     request: RoadmapProjectionRequest,
     db: Session = Depends(get_db),
 ):
-    """Insert selected grimoire sections into matched roadmap paths."""
+    """Insert selected grimoire sections into visible roadmap paths."""
     if not request.section_ids:
         raise api_error(status.HTTP_400_BAD_REQUEST, "Select at least one section to project")
     try:

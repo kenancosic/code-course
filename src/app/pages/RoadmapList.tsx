@@ -23,6 +23,7 @@ import {
   useProfile,
   useRoadmapProgresses,
   useRoadmaps,
+  type Course,
   type RoadmapProgress,
 } from '../../hooks';
 
@@ -42,6 +43,63 @@ const colorMap: Record<string, string> = {
   'from-green-500 to-emerald-500': 'from-chart-2 to-chart-2/80',
   'from-purple-500 to-violet-500': 'from-primary to-primary/80',
 };
+
+function getCourseCompletionPercentage(course: Course | null | undefined): number {
+  return course?.user_progress?.completion_percentage ?? 0;
+}
+
+function isCourseCompleted(course: Course | null | undefined): boolean {
+  return getCourseCompletionPercentage(course) >= 100;
+}
+
+function isCourseStarted(course: Course | null | undefined): boolean {
+  return getCourseCompletionPercentage(course) > 0;
+}
+
+function getCourseRecencyScore(course: Course): number {
+  const createdAt = course.created_at ? Date.parse(course.created_at) : 0;
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
+function selectPrimaryCourseForTopic(courses: Course[] | undefined, topicId: number): Course | null {
+  const topicCourses = (courses ?? []).filter((course) => course.topic_id === topicId);
+  if (topicCourses.length === 0) return null;
+
+  const newestFirst = (left: Course, right: Course) =>
+    getCourseRecencyScore(right) - getCourseRecencyScore(left) || right.id - left.id;
+
+  const completedCourse = topicCourses.filter(isCourseCompleted).sort(newestFirst)[0];
+  if (completedCourse) return completedCourse;
+
+  const startedCourse = topicCourses.filter(isCourseStarted).sort(newestFirst)[0];
+  if (startedCourse) return startedCourse;
+
+  const generatingCourse = topicCourses.filter((course) => course.status === 'generating').sort(newestFirst)[0];
+  if (generatingCourse) return generatingCourse;
+
+  const readyZeroProgressCourse = topicCourses
+    .filter((course) => course.status === 'ready' && !isCourseStarted(course))
+    .sort(newestFirst)[0];
+  if (readyZeroProgressCourse) return readyZeroProgressCourse;
+
+  return null;
+}
+
+function getRoadmapCourseCount(
+  roadmap: { nodes?: Array<{ topic_id: number }> },
+  courses: Course[] | undefined
+): number {
+  const selectedCourseIds = new Set<number>();
+
+  for (const node of roadmap.nodes ?? []) {
+    const course = selectPrimaryCourseForTopic(courses, node.topic_id);
+    if (course) {
+      selectedCourseIds.add(course.id);
+    }
+  }
+
+  return selectedCourseIds.size;
+}
 
 export function RoadmapList() {
   const { data: roadmaps, isLoading, error } = useRoadmaps();
@@ -306,9 +364,7 @@ export function RoadmapList() {
             const colorClass =
               (roadmap.colors ? colorMap[roadmap.colors] : null) || 'from-muted to-muted-foreground';
             const nodeCount = roadmap.nodes?.length || 0;
-            const roadmapCourseCount = (courses ?? []).filter((course) =>
-              roadmap.nodes?.some((node) => node.topic_id === course.topic_id)
-            ).length;
+            const roadmapCourseCount = getRoadmapCourseCount(roadmap, courses);
             const isCurrentFocus = roadmap.id === currentPathId;
             const roadmapProgress = roadmapProgressById.get(roadmap.id);
             const isRoadmapProgressLoading = roadmapProgressLoadingById.get(roadmap.id) ?? false;

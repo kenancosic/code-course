@@ -7,6 +7,7 @@ import time
 import types
 import unittest
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
@@ -26,7 +27,20 @@ if "litellm" not in sys.modules:
     sys.modules["litellm"] = litellm_stub
 
 from server.main import app
-from server.models import Course, Lesson, RoadmapNode, RoadmapPath, Topic, UserProfile
+from server.models import (
+    Course,
+    CourseEnrollment,
+    Lesson,
+    RoadmapNode,
+    RoadmapPath,
+    Topic,
+    UserProgress,
+    UserProfile,
+)
+
+
+def _utc_now_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class ApiContractTests(unittest.TestCase):
@@ -79,6 +93,15 @@ class ApiContractTests(unittest.TestCase):
 
     def seed_course(self) -> tuple[int, int, int]:
         with self.db_session() as db:
+            db.add(
+                UserProfile(
+                    id=1,
+                    display_name="Adventurer",
+                    avatar_seed="Felix",
+                    total_xp=0,
+                    level=1,
+                )
+            )
             topic = Topic(title="Testing", description="Testing topic", ai_generated=False)
             db.add(topic)
             db.flush()
@@ -106,6 +129,97 @@ class ApiContractTests(unittest.TestCase):
             db.add(lesson)
             db.flush()
             return topic.id, course.id, lesson.id
+
+    def seed_course_pair(self) -> tuple[int, int, int, int]:
+        with self.db_session() as db:
+            db.add_all(
+                [
+                    UserProfile(
+                        id=1,
+                        display_name="Adventurer",
+                        avatar_seed="Felix",
+                        total_xp=0,
+                        level=1,
+                    ),
+                    UserProfile(
+                        id=2,
+                        display_name="Rival",
+                        avatar_seed="owl",
+                        total_xp=0,
+                        level=1,
+                    ),
+                ]
+            )
+            current_topic = Topic(title="Current Topic", description="Current topic")
+            foreign_topic = Topic(title="Foreign Topic", description="Foreign topic")
+            db.add_all([current_topic, foreign_topic])
+            db.flush()
+
+            current_course = Course(
+                title="Current Course",
+                description="Current course",
+                topic_id=current_topic.id,
+                status="ready",
+                total_lessons=1,
+                total_xp=25,
+            )
+            foreign_course = Course(
+                title="Foreign Course",
+                description="Foreign course",
+                topic_id=foreign_topic.id,
+                status="ready",
+                total_lessons=1,
+                total_xp=25,
+            )
+            db.add_all([current_course, foreign_course])
+            db.flush()
+
+            current_lesson = Lesson(
+                course_id=current_course.id,
+                title="Current Lesson",
+                content_markdown="# Current",
+                task_type="quiz",
+                task_content="Current?",
+                sort_order=0,
+                xp_reward=25,
+            )
+            foreign_lesson = Lesson(
+                course_id=foreign_course.id,
+                title="Foreign Lesson",
+                content_markdown="# Foreign",
+                task_type="quiz",
+                task_content="Foreign?",
+                sort_order=0,
+                xp_reward=25,
+            )
+            db.add_all([current_lesson, foreign_lesson])
+            db.flush()
+
+            db.add(
+                CourseEnrollment(
+                    user_id=1,
+                    course_id=current_course.id,
+                    started_at=_utc_now_naive(),
+                    last_accessed_at=_utc_now_naive(),
+                )
+            )
+            db.add(
+                CourseEnrollment(
+                    user_id=2,
+                    course_id=foreign_course.id,
+                    started_at=_utc_now_naive(),
+                    last_accessed_at=_utc_now_naive(),
+                )
+            )
+            db.add(
+                UserProgress(
+                    user_id=2,
+                    lesson_id=foreign_lesson.id,
+                    course_id=foreign_course.id,
+                    xp_earned=25,
+                )
+            )
+            return current_course.id, current_lesson.id, foreign_course.id, foreign_lesson.id
 
     def seed_practice_floor(self) -> int:
         with self.db_session() as db:
@@ -144,6 +258,24 @@ class ApiContractTests(unittest.TestCase):
 
     def test_progress_summary_shape(self) -> None:
         _, course_id, lesson_id = self.seed_course()
+        with self.db_session() as db:
+            db.add(UserProfile(id=2, display_name="Rival", avatar_seed="owl", total_xp=0, level=1))
+            db.add(
+                CourseEnrollment(
+                    user_id=2,
+                    course_id=course_id,
+                    started_at=_utc_now_naive(),
+                    last_accessed_at=_utc_now_naive(),
+                )
+            )
+            db.add(
+                UserProgress(
+                    user_id=2,
+                    lesson_id=lesson_id,
+                    course_id=course_id,
+                    xp_earned=25,
+                )
+            )
         self.client.post(
             "/api/progress/complete-lesson",
             json={
@@ -170,6 +302,78 @@ class ApiContractTests(unittest.TestCase):
             },
         )
         self.assertEqual(payload["total_lessons_completed"], 1)
+        self.assertEqual(payload["total_courses_completed"], 1)
+
+    def test_course_listing_and_detail_are_current_user_scoped(self) -> None:
+        current_course_id, current_lesson_id, foreign_course_id, foreign_lesson_id = self.seed_course_pair()
+
+        list_response = self.client.get("/api/courses/")
+        self.assertEqual(list_response.status_code, 200)
+        courses = list_response.json()
+        self.assertEqual(len(courses), 1)
+        self.assertEqual(courses[0]["id"], current_course_id)
+        self.assertEqual(courses[0]["user_progress"]["completed_lessons"], 0)
+        self.assertIsNotNone(courses[0]["user_progress"]["started_at"])
+
+        current_detail = self.client.get(f"/api/courses/{current_course_id}")
+        self.assertEqual(current_detail.status_code, 200)
+        self.assertEqual(current_detail.json()["id"], current_course_id)
+        self.assertEqual(current_detail.json()["lessons"][0]["id"], current_lesson_id)
+
+        foreign_detail = self.client.get(f"/api/courses/{foreign_course_id}")
+        self.assertEqual(foreign_detail.status_code, 404)
+        self.assertEqual(foreign_detail.json()["code"], "RESOURCE_NOT_FOUND")
+
+        foreign_lesson = self.client.get(f"/api/courses/{foreign_course_id}/lessons/{foreign_lesson_id}")
+        self.assertEqual(foreign_lesson.status_code, 404)
+        self.assertEqual(foreign_lesson.json()["code"], "RESOURCE_NOT_FOUND")
+
+    def test_topic_generation_stream_auto_enrolls_current_user(self) -> None:
+        with self.db_session() as db:
+            topic = Topic(title="Python", description="Python topic")
+            db.add(topic)
+            db.flush()
+            topic_id = topic.id
+
+        async def fake_stream(ctx):
+            ctx.outline = types.SimpleNamespace(title="Python Foundations", description="Python basics")
+            ctx.lessons = [
+                types.SimpleNamespace(
+                    title="Lesson One",
+                    content_markdown="# Intro",
+                    task_type="quiz",
+                    task_content="What is Python?",
+                    index=0,
+                )
+            ]
+            yield 'event: status\ndata: {"stage":"outline","message":"planning"}\n\n'
+
+        with patch("server.services.course_service.run_pipeline", fake_stream):
+            response = self.client.post(
+                "/api/courses/generate",
+                json={"topic_ids": [topic_id]},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/event-stream", response.headers["content-type"])
+        self.assertIn("event: complete", response.text)
+
+        with self.db_session() as db:
+            course = db.query(Course).order_by(Course.id.desc()).first()
+            self.assertIsNotNone(course)
+            course_id = course.id
+            enrollment = (
+                db.query(CourseEnrollment)
+                .filter(CourseEnrollment.course_id == course_id, CourseEnrollment.user_id == 1)
+                .first()
+            )
+            self.assertIsNotNone(enrollment)
+
+        detail_response = self.client.get(f"/api/courses/{course_id}")
+        self.assertEqual(detail_response.status_code, 200)
+        payload = detail_response.json()
+        self.assertEqual(payload["user_progress"]["completed_lessons"], 0)
+        self.assertIsNotNone(payload["user_progress"]["started_at"])
 
     def test_profile_current_path_update(self) -> None:
         with self.db_session() as db:
@@ -238,6 +442,33 @@ class ApiContractTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["title"], "Rust Path")
         self.assertEqual(len(payload["nodes"]), 2)
+        self.assertEqual(payload["user_id"], 1)
+
+        with self.db_session() as db:
+            public_path = RoadmapPath(title="Public Path", description="Public path", is_locked=False, is_custom=False)
+            other_user = UserProfile(id=2, display_name="Rival", avatar_seed="owl", total_xp=0, level=1)
+            foreign_path = RoadmapPath(
+                title="Foreign Path",
+                description="Foreign path",
+                is_locked=False,
+                is_custom=True,
+                user_id=2,
+            )
+            db.add_all([public_path, other_user, foreign_path])
+            db.flush()
+            public_path_id = public_path.id
+            foreign_path_id = foreign_path.id
+
+        roadmaps_response = self.client.get("/api/roadmaps/")
+        self.assertEqual(roadmaps_response.status_code, 200)
+        roadmap_ids = {item["id"] for item in roadmaps_response.json()}
+        self.assertIn(payload["id"], roadmap_ids)
+        self.assertIn(public_path_id, roadmap_ids)
+        self.assertNotIn(foreign_path_id, roadmap_ids)
+
+        foreign_detail = self.client.get(f"/api/roadmaps/{foreign_path_id}")
+        self.assertEqual(foreign_detail.status_code, 404)
+        self.assertEqual(foreign_detail.json()["code"], "RESOURCE_NOT_FOUND")
 
         missing = self.client.get("/api/courses/9999")
         self.assertEqual(missing.status_code, 404)
@@ -311,6 +542,16 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(course_payload["generation_mode"], "document")
         self.assertEqual(course_payload["source_document_id"], document_id)
         self.assertGreater(len(course_payload["lessons"]), 0)
+        self.assertEqual(course_payload["user_progress"]["completed_lessons"], 0)
+        self.assertIsNotNone(course_payload["user_progress"]["started_at"])
+
+        with self.db_session() as db:
+            enrollment = (
+                db.query(CourseEnrollment)
+                .filter(CourseEnrollment.course_id == course_payload["id"], CourseEnrollment.user_id == 1)
+                .first()
+            )
+            self.assertIsNotNone(enrollment)
 
         preview_response = self.client.post(
             f"/api/grimoires/{document_id}/roadmap-preview",

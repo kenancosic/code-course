@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from server.config import get_settings
 from server.llm import client
 from server.models import RoadmapConnection, RoadmapNode, RoadmapPath, Topic, TopicConnection
+from server.services import progression_service
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ def _resolve_positions(nodes: list[dict]) -> list[dict]:
 async def generate_custom_roadmap(db: Session, topic_name: str) -> RoadmapPath:
     roadmap_data = await _llm_roadmap(topic_name)
     nodes_data = _resolve_positions(list(roadmap_data.get("nodes", [])))
+    profile = progression_service.get_or_create_profile(db)
 
     roadmap_path = RoadmapPath(
         title=roadmap_data.get("title", topic_name.strip().title()),
@@ -132,6 +134,7 @@ async def generate_custom_roadmap(db: Session, topic_name: str) -> RoadmapPath:
             f"An AI-generated roadmap for {topic_name.strip()}",
         ),
         is_custom=True,
+        user_id=profile.id,
         icon="Sparkles",
         colors="from-cyan-500 to-blue-500",
     )

@@ -11,18 +11,58 @@ from sqlalchemy.orm import Session
 from server.models import (
     Achievement,
     Course,
+    CourseEnrollment,
     Lesson,
     RoadmapNode,
     RoadmapPath,
     UserAchievement,
     UserProgress,
 )
-from server.services import progression_service
+from server.services import course_service, progression_service
 
 
 def _utc_now() -> datetime:
     """Return a naive UTC datetime without using deprecated utcnow()."""
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _user_scoped_course(
+    db: Session,
+    course_id: int,
+    user_id: int,
+) -> Course | None:
+    return (
+        db.query(Course)
+        .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
+        .filter(
+            Course.id == course_id,
+            CourseEnrollment.user_id == user_id,
+        )
+        .first()
+    )
+
+
+def _sync_enrollment_state(
+    db: Session,
+    course_id: int,
+    user_id: int,
+    touched_at: datetime | None = None,
+) -> CourseEnrollment:
+    enrollment = course_service.ensure_course_enrollment(
+        db,
+        course_id,
+        user_id=user_id,
+        last_accessed_at=touched_at,
+    )
+    completed = check_course_completion(db, course_id, user_id=user_id)
+    if touched_at is not None:
+        enrollment.last_accessed_at = touched_at
+    if completed:
+        enrollment.completed_at = touched_at or enrollment.completed_at or _utc_now()
+    else:
+        enrollment.completed_at = None
+    db.flush()
+    return enrollment
 
 
 def complete_lesson(
@@ -31,11 +71,16 @@ def complete_lesson(
     course_id: int,
     time_spent_seconds: int = 0,
 ) -> dict:
+    del time_spent_seconds
+
     profile = progression_service.get_or_create_profile(db)
+    touched_at = _utc_now()
+    _sync_enrollment_state(db, course_id, profile.id, touched_at=touched_at)
 
     existing = (
         db.query(UserProgress)
         .filter(
+            UserProgress.user_id == profile.id,
             UserProgress.lesson_id == lesson_id,
             UserProgress.course_id == course_id,
         )
@@ -43,6 +88,7 @@ def complete_lesson(
     )
     if existing:
         snapshot = progression_service.progress_snapshot(profile.total_xp)
+        db.commit()
         return {
             "xp_earned": 0,
             "total_xp": profile.total_xp,
@@ -50,29 +96,38 @@ def complete_lesson(
             "level_after": snapshot.current_level,
             "xp_to_next_level": snapshot.xp_to_next_level,
             "new_achievements": [],
-            "node_completed": False,
+            "node_completed": check_course_completion(db, course_id, user_id=profile.id),
         }
 
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    lesson = (
+        db.query(Lesson)
+        .filter(Lesson.id == lesson_id, Lesson.course_id == course_id)
+        .first()
+    )
     xp_earned = lesson.xp_reward if lesson else 10
     level_before = progression_service.calculate_level(profile.total_xp)
 
     db.add(
         UserProgress(
+            user_id=profile.id,
             lesson_id=lesson_id,
             course_id=course_id,
             xp_earned=xp_earned,
+            completed_at=touched_at,
         )
     )
 
     profile.total_xp += xp_earned
     snapshot = progression_service.progress_snapshot(profile.total_xp)
     profile.level = snapshot.current_level
+    _sync_enrollment_state(db, course_id, profile.id, touched_at=touched_at)
     db.commit()
     db.refresh(profile)
 
-    new_achievements = check_achievements(db, profile.total_xp, snapshot.current_level)
-    node_completed = check_course_completion(db, course_id)
+    new_achievements = check_achievements(db, profile.id, profile.total_xp, snapshot.current_level)
+    node_completed = check_course_completion(db, course_id, user_id=profile.id)
+    _sync_enrollment_state(db, course_id, profile.id, touched_at=touched_at)
+    db.commit()
 
     return {
         "xp_earned": xp_earned,
@@ -85,23 +140,48 @@ def complete_lesson(
     }
 
 
-def check_course_completion(db: Session, course_id: int) -> bool:
+def check_course_completion(
+    db: Session,
+    course_id: int,
+    user_id: int | None = None,
+) -> bool:
+    user_id = user_id or progression_service.get_current_profile_id(db)
     total_lessons = db.query(Lesson).filter(Lesson.course_id == course_id).count()
     completed_lessons = (
-        db.query(UserProgress).filter(UserProgress.course_id == course_id).count()
+        db.query(UserProgress)
+        .filter(
+            UserProgress.user_id == user_id,
+            UserProgress.course_id == course_id,
+        )
+        .count()
     )
     return total_lessons > 0 and completed_lessons >= total_lessons
 
 
 def check_achievements(
     db: Session,
+    user_id: int,
     total_xp: int,
     current_level: int,
 ) -> List[dict]:
     new_achievements = []
-    unlocked_ids = {ua.achievement_id for ua in db.query(UserAchievement).all()}
-    lesson_count = db.query(UserProgress).count()
-    course_count = db.query(UserProgress.course_id).distinct().count()
+    unlocked_ids = {
+        ua.achievement_id
+        for ua in db.query(UserAchievement)
+        .filter(UserAchievement.user_id == user_id)
+        .all()
+    }
+    lesson_count = (
+        db.query(UserProgress)
+        .filter(UserProgress.user_id == user_id)
+        .count()
+    )
+    course_count = (
+        db.query(UserProgress.course_id)
+        .filter(UserProgress.user_id == user_id)
+        .distinct()
+        .count()
+    )
 
     for achievement in db.query(Achievement).all():
         if achievement.id in unlocked_ids:
@@ -120,7 +200,13 @@ def check_achievements(
         if not triggered:
             continue
 
-        db.add(UserAchievement(achievement_id=achievement.id, unlocked_at=_utc_now()))
+        db.add(
+            UserAchievement(
+                user_id=user_id,
+                achievement_id=achievement.id,
+                unlocked_at=_utc_now(),
+            )
+        )
         new_achievements.append(
             {
                 "id": achievement.id,
@@ -141,16 +227,27 @@ def get_progress_summary(db: Session) -> dict:
     profile = progression_service.get_or_create_profile(db)
     snapshot = progression_service.progress_snapshot(profile.total_xp)
 
-    total_lessons_completed = db.query(UserProgress).count()
-    total_courses_completed = 0
-    for course in db.query(Course).all():
-        if check_course_completion(db, course.id):
-            total_courses_completed += 1
+    total_lessons_completed = (
+        db.query(UserProgress)
+        .filter(UserProgress.user_id == profile.id)
+        .count()
+    )
+    total_courses_completed = (
+        db.query(CourseEnrollment)
+        .filter(
+            CourseEnrollment.user_id == profile.id,
+            CourseEnrollment.completed_at.isnot(None),
+        )
+        .count()
+    )
 
     week_ago = _utc_now() - timedelta(days=7)
     streak_days = (
         db.query(func.date(UserProgress.completed_at))
-        .filter(UserProgress.completed_at >= week_ago)
+        .filter(
+            UserProgress.user_id == profile.id,
+            UserProgress.completed_at >= week_ago,
+        )
         .distinct()
         .count()
     )
@@ -172,6 +269,7 @@ def get_roadmap_progress(db: Session, path_id: int) -> Optional[dict]:
     if not path:
         return None
 
+    profile = progression_service.get_or_create_profile(db)
     nodes = db.query(RoadmapNode).filter(RoadmapNode.path_id == path_id).all()
     total_nodes = len(nodes)
     if total_nodes == 0:
@@ -182,11 +280,19 @@ def get_roadmap_progress(db: Session, path_id: int) -> Optional[dict]:
             "completion_percentage": 0.0,
         }
 
-    completed_nodes = 0
-    for node in nodes:
-        node_courses = db.query(Course).filter(Course.topic_id == node.topic_id).all()
-        if node_courses and all(check_course_completion(db, course.id) for course in node_courses):
-            completed_nodes += 1
+    completed_topic_ids = {
+        topic_id
+        for (topic_id,) in db.query(Course.topic_id)
+        .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
+        .filter(
+            CourseEnrollment.user_id == profile.id,
+            CourseEnrollment.completed_at.isnot(None),
+            Course.topic_id.isnot(None),
+        )
+        .distinct()
+        .all()
+    }
+    completed_nodes = sum(1 for node in nodes if node.topic_id in completed_topic_ids)
 
     return {
         "path_id": path_id,
@@ -197,16 +303,25 @@ def get_roadmap_progress(db: Session, path_id: int) -> Optional[dict]:
 
 
 def get_course_progress(db: Session, course_id: int) -> Optional[dict]:
-    course = db.query(Course).filter(Course.id == course_id).first()
+    profile = progression_service.get_or_create_profile(db)
+    course = _user_scoped_course(db, course_id, profile.id)
     if not course:
         return None
 
     lessons = (
-        db.query(Lesson).filter(Lesson.course_id == course_id).order_by(Lesson.sort_order).all()
+        db.query(Lesson)
+        .filter(Lesson.course_id == course_id)
+        .order_by(Lesson.sort_order)
+        .all()
     )
     completed_lesson_ids = {
         progress.lesson_id
-        for progress in db.query(UserProgress).filter(UserProgress.course_id == course_id).all()
+        for progress in db.query(UserProgress)
+        .filter(
+            UserProgress.user_id == profile.id,
+            UserProgress.course_id == course_id,
+        )
+        .all()
     }
     completed_lessons = len(completed_lesson_ids)
     total_lessons = len(lessons)

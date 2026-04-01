@@ -21,6 +21,7 @@ class Course(Base):
     topic = relationship("Topic", back_populates="courses")
     source_document = relationship("SourceDocument", back_populates="courses")
     lessons = relationship("Lesson", back_populates="course", cascade="all, delete-orphan")
+    enrollments = relationship("CourseEnrollment", back_populates="course", cascade="all, delete-orphan")
     progress_entries = relationship("UserProgress", back_populates="course")
 
 

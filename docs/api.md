@@ -34,7 +34,7 @@ Common codes:
 
 ### `GET /api/roadmaps/`
 
-Returns all unlocked roadmap paths.
+Returns all public roadmap paths plus the current user's custom roadmap paths.
 
 ```json
 [
@@ -56,7 +56,7 @@ Returns all unlocked roadmap paths.
 
 ### `GET /api/roadmaps/{path_id}`
 
-Returns one roadmap path with nodes and connections.
+Returns one roadmap path with nodes and connections if it is public or owned by the current user.
 
 Roadmap node shape:
 
@@ -104,7 +104,7 @@ Returns a topic with subtopics and graph connections.
 
 ### `POST /api/topics/generate-roadmap`
 
-Generates and persists a custom roadmap from a free-form topic.
+Generates and persists a custom roadmap from a free-form topic for the current local user.
 
 Request:
 
@@ -133,7 +133,7 @@ Lesson task fields:
 
 ### `GET /api/courses/`
 
-Returns all persisted courses.
+Returns the current user's enrolled/generated courses.
 
 ```json
 [
@@ -146,14 +146,21 @@ Returns all persisted courses.
     "total_lessons": 1,
     "total_xp": 25,
     "created_at": "2026-03-26T20:00:00",
-    "lessons": []
+    "lessons": [],
+    "user_progress": {
+      "completed_lessons": 1,
+      "completion_percentage": 100,
+      "started_at": "2026-03-26T19:30:00",
+      "last_accessed_at": "2026-03-26T20:00:00",
+      "completed_at": "2026-03-26T20:00:00"
+    }
   }
 ]
 ```
 
 ### `GET /api/courses/{course_id}`
 
-Returns a course and its lessons.
+Returns one of the current user's courses, its lessons, and the current-user progress summary.
 
 ### `GET /api/courses/{course_id}/lessons/{lesson_id}`
 
@@ -177,6 +184,8 @@ Lesson shape:
 ### `POST /api/courses/generate`
 
 Starts course generation and returns an SSE stream.
+
+The generated course is automatically enrolled for the current local user.
 
 Request:
 
@@ -225,13 +234,13 @@ Response:
 
 ### `DELETE /api/courses/{course_id}`
 
-Deletes a course and its lessons.
+Deletes one of the current user's courses and its lessons.
 
 ## Progress
 
 ### `POST /api/progress/complete-lesson`
 
-Marks a lesson complete and awards XP.
+Marks a lesson complete for the current user and awards XP.
 
 Request:
 
@@ -259,7 +268,7 @@ Response:
 
 ### `GET /api/progress/summary`
 
-Canonical dashboard summary endpoint.
+Canonical dashboard summary endpoint for the current user.
 
 ```json
 {
@@ -276,17 +285,17 @@ Canonical dashboard summary endpoint.
 
 ### `GET /api/progress/roadmap/{path_id}`
 
-Returns roadmap completion stats.
+Returns the current user's roadmap completion stats.
 
 ### `GET /api/progress/course/{course_id}`
 
-Returns lesson-by-lesson completion stats for a course.
+Returns lesson-by-lesson completion stats for one of the current user's courses.
 
 ## Profile
 
 ### `GET /api/profile/`
 
-Returns the local user profile, current path context, skills, and recent activity.
+Returns the current local profile, current path context, skills, and recent activity.
 
 ```json
 {
@@ -323,15 +332,41 @@ Request:
 
 ### `GET /api/profile/achievements`
 
-Returns all achievements with unlock state.
+Returns all achievements with current-user unlock state.
 
 ### `GET /api/profile/skills`
 
-Returns aggregated path-based skill levels.
+Returns aggregated path-based skill levels for the current user.
 
 ### `GET /api/profile/activity?limit=20`
 
-Returns recent activity entries.
+Returns recent activity entries for the current user.
+
+## Grimoires
+
+### `POST /api/grimoires/upload`
+
+Uploads a source document and starts background processing.
+
+### `GET /api/grimoires/{document_id}`
+
+Returns the current processing state for a source document.
+
+### `GET /api/grimoires/{document_id}/sections`
+
+Returns the normalized section tree for a processed source document.
+
+### `POST /api/grimoires/{document_id}/courses`
+
+Forges a course from a processed grimoire and automatically enrolls the current user.
+
+### `POST /api/grimoires/{document_id}/roadmap-preview`
+
+Returns suggested placements against visible roadmap paths only.
+
+### `POST /api/grimoires/{document_id}/roadmap-apply`
+
+Applies selected grimoire sections into visible roadmap paths only.
 
 ## Practice
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from server.database import Base
@@ -15,17 +15,42 @@ class UserProfile(Base):
     current_path_id = Column(Integer, ForeignKey("roadmap_paths.id"), nullable=True)
 
     current_path = relationship("RoadmapPath", foreign_keys=[current_path_id])
+    course_enrollments = relationship("CourseEnrollment", back_populates="user")
+    progress_entries = relationship("UserProgress", back_populates="user")
+    achievements = relationship("UserAchievement", back_populates="user")
+
+
+class CourseEnrollment(Base):
+    __tablename__ = "course_enrollments"
+    __table_args__ = (
+        UniqueConstraint("user_id", "course_id", name="uq_course_enrollments_user_course"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user_profiles.id"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_accessed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("UserProfile", back_populates="course_enrollments")
+    course = relationship("Course", back_populates="enrollments")
 
 
 class UserProgress(Base):
     __tablename__ = "user_progress"
+    __table_args__ = (
+        UniqueConstraint("user_id", "lesson_id", name="uq_user_progress_user_lesson"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user_profiles.id"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     xp_earned = Column(Integer, default=0)
     completed_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    user = relationship("UserProfile", back_populates="progress_entries")
     lesson = relationship("Lesson", back_populates="progress_entries")
     course = relationship("Course", back_populates="progress_entries")
 
@@ -46,9 +71,14 @@ class Achievement(Base):
 
 class UserAchievement(Base):
     __tablename__ = "user_achievements"
+    __table_args__ = (
+        UniqueConstraint("user_id", "achievement_id", name="uq_user_achievements_user_achievement"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user_profiles.id"), nullable=False)
     achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=False)
     unlocked_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    user = relationship("UserProfile", back_populates="achievements")
     achievement = relationship("Achievement", back_populates="user_achievements")

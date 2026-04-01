@@ -81,9 +81,11 @@ export function useCompleteLesson() {
 
   return useMutation({
     mutationFn: completeLesson,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['progress'] });
       queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course', String(variables.course_id)] });
     },
   });
 }

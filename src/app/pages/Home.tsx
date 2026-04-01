@@ -53,12 +53,6 @@ export function Home() {
     }
   };
 
-  const getCourseProgressValue = (status: string) => {
-    if (status === 'ready') return 70;
-    if (status === 'generating') return 35;
-    return 8;
-  };
-
   return (
     <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -257,7 +251,7 @@ export function Home() {
                         <span>Lessons</span>
                         <span>{course.total_lessons}</span>
                       </div>
-                      <Progress value={getCourseProgressValue(course.status)} className="h-2" />
+                      <Progress value={course.user_progress?.completion_percentage ?? 0} className="h-2" />
                     </div>
 
                     <div className="flex items-center justify-between gap-3 pt-2">

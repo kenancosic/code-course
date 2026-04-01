@@ -1,7 +1,7 @@
 from .roadmap import RoadmapPath, RoadmapNode, RoadmapConnection
 from .course import Course, Lesson
 from .grimoire import SourceDocument, DocumentSection
-from .progress import UserProfile, UserProgress, Achievement, UserAchievement
+from .progress import CourseEnrollment, UserProfile, UserProgress, Achievement, UserAchievement
 from .practice import (
     PracticeChallenge,
     PracticeEncounter,
@@ -19,6 +19,7 @@ __all__ = [
     "Lesson",
     "SourceDocument",
     "DocumentSection",
+    "CourseEnrollment",
     "UserProfile",
     "UserProgress",
     "Achievement",

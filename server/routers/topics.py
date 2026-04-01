@@ -40,7 +40,7 @@ async def generate_roadmap(
     request: GenerateRoadmapRequest,
     db: Session = Depends(get_db)
 ):
-    """Generate a custom roadmap path using the shared topic service."""
+    """Generate a custom roadmap path for the current local user."""
     topic_name = request.topic.strip()
     if not topic_name:
         raise api_error(status.HTTP_400_BAD_REQUEST, "Topic is required")

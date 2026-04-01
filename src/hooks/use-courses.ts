@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { CourseUserProgress } from '../types/progress';
 
 export type TaskType = 'coding' | 'quiz' | 'project' | null;
 export type CourseStatus = 'generating' | 'ready' | 'error';
@@ -26,6 +27,7 @@ export interface Course {
   total_lessons: number;
   total_xp: number;
   created_at: string | null;
+  user_progress: CourseUserProgress | null;
   lessons: CourseLesson[];
 }
 

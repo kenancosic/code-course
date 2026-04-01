@@ -1,11 +1,13 @@
 """Course API endpoints."""
+
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from server.database import get_db
 from server.errors import api_error
-from server.models import Course, Topic
+from server.models import Course, CourseEnrollment, Topic
 from server.schemas.course import CourseResponse, LessonResponse, GenerateCourseRequest, EvaluateTaskRequest
 from server.services import course_service
 from server.llm.streaming import sse_response
@@ -15,14 +17,14 @@ router = APIRouter(prefix="/courses", tags=["courses"])
 
 @router.get("/", response_model=List[CourseResponse])
 async def list_courses(db: Session = Depends(get_db)):
-    """List all generated courses."""
+    """List the current user's courses."""
     courses = course_service.list_courses(db)
     return courses
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
 async def get_course(course_id: int, db: Session = Depends(get_db)):
-    """Get a course with all its lessons."""
+    """Get one of the current user's courses with all its lessons."""
     course = course_service.get_course_with_lessons(db, course_id)
     if not course:
         raise api_error(status.HTTP_404_NOT_FOUND, f"Course {course_id} not found")
@@ -31,8 +33,12 @@ async def get_course(course_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{course_id}/lessons/{lesson_id}", response_model=LessonResponse)
 async def get_lesson(course_id: int, lesson_id: int, db: Session = Depends(get_db)):
-    """Get a single lesson by ID."""
+    """Get a single lesson from the current user's course."""
     from server.models import Lesson
+
+    course = course_service.get_course_with_lessons(db, course_id)
+    if not course:
+        raise api_error(status.HTTP_404_NOT_FOUND, f"Course {course_id} not found")
 
     lesson = (
         db.query(Lesson)
@@ -54,11 +60,15 @@ async def evaluate_lesson_task(
     request: EvaluateTaskRequest,
     db: Session = Depends(get_db),
 ):
-    """Evaluate a user's answer to a lesson task."""
+    """Evaluate a user's answer to a lesson task in the current user's course."""
     from server.models import Lesson
     from server.llm import client
     from server.llm.prompts import evaluate
     from server.config import get_settings
+
+    course = course_service.get_course_with_lessons(db, course_id)
+    if not course:
+        raise api_error(status.HTTP_404_NOT_FOUND, f"Course {course_id} not found")
 
     lesson = (
         db.query(Lesson)
@@ -103,7 +113,7 @@ async def evaluate_lesson_task(
 
 @router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_course(course_id: int, db: Session = Depends(get_db)):
-    """Delete a course and all its lessons."""
+    """Delete one of the current user's courses and all its lessons."""
     deleted = course_service.delete_course(db, course_id)
     if not deleted:
         raise api_error(status.HTTP_404_NOT_FOUND, f"Course {course_id} not found")
@@ -113,7 +123,7 @@ async def generate_course(
     request: GenerateCourseRequest,
     db: Session = Depends(get_db),
 ):
-    """Generate a course from topics.
+    """Generate a course from topics for the current local user.
 
     Returns an SSE stream with generation progress and content chunks.
 
@@ -143,9 +153,11 @@ async def generate_course(
     # Check if a course is already being generated for this primary topic
     existing = (
         db.query(Course)
+        .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
         .filter(
             Course.topic_id == primary_topic_id,
             Course.status == "generating",
+            CourseEnrollment.user_id == course_service.current_user_id(db),
         )
         .first()
     )

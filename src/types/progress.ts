@@ -59,6 +59,14 @@ export interface RoadmapProgress {
   completion_percentage: number;
 }
 
+export interface CourseUserProgress {
+  completed_lessons: number;
+  completion_percentage: number;
+  started_at: string | null;
+  last_accessed_at: string | null;
+  completed_at: string | null;
+}
+
 export interface CourseProgressLesson {
   lesson_id: number;
   title: string;

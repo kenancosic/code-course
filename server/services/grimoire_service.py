@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterable
 
 from fastapi import UploadFile
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 
@@ -27,6 +27,7 @@ from server.models import (
     SourceDocument,
     Topic,
 )
+from server.services import course_service, progression_service
 
 
 ALLOWED_FORMATS = {".pdf": "pdf", ".epub": "epub", ".txt": "txt"}
@@ -224,6 +225,14 @@ def get_document_sections(db: Session, document_id: int) -> list[DocumentSection
     )
 
 
+def _visible_paths_query(db: Session):
+    profile = progression_service.get_or_create_profile(db)
+    return db.query(RoadmapPath).filter(
+        RoadmapPath.is_locked == False,  # noqa: E712
+        or_(RoadmapPath.user_id.is_(None), RoadmapPath.user_id == profile.id),
+    )
+
+
 def build_section_tree(sections: list[DocumentSection]) -> list[DocumentSection]:
     by_id = {section.id: section for section in sections}
     children_map: dict[int | None, list[DocumentSection]] = defaultdict(list)
@@ -266,6 +275,14 @@ async def create_course_from_document(
     db.add(course)
     db.commit()
     db.refresh(course)
+    course_service.ensure_course_enrollment(
+        db,
+        course.id,
+        user_id=progression_service.get_current_profile_id(db),
+        started_at=course.created_at,
+        last_accessed_at=course.created_at,
+    )
+    db.commit()
 
     total_xp = 0
     for index, section in enumerate(sections):
@@ -289,7 +306,7 @@ async def create_course_from_document(
     course.status = "ready"
     db.commit()
     db.refresh(course)
-    return course
+    return course_service.attach_user_progress(db, [course])[0]
 
 
 def preview_roadmap_projection(
@@ -305,11 +322,7 @@ def preview_roadmap_projection(
     if not sections:
         return []
 
-    paths = (
-        db.query(RoadmapPath)
-        .filter(RoadmapPath.is_locked == False)  # noqa: E712
-        .all()
-    )
+    paths = _visible_paths_query(db).all()
     path_lookup = {path.id: path for path in paths}
     max_x_by_tier: dict[tuple[int, int], int] = {}
     for path in paths:
@@ -616,11 +629,7 @@ def _match_section_to_visible_path(
     best_match: dict | None = None
     best_score = 0
 
-    visible_paths = (
-        db.query(RoadmapPath)
-        .filter(RoadmapPath.is_locked == False)  # noqa: E712
-        .all()
-    )
+    visible_paths = _visible_paths_query(db).all()
     for path in visible_paths:
         for node in path.nodes:
             topic = node.topic

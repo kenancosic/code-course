@@ -53,6 +53,54 @@ interface NodeWithStatus extends RoadmapNode {
   prerequisites: number[];
 }
 
+function getCourseCompletionPercentage(course: Course | null | undefined): number {
+  return course?.user_progress?.completion_percentage ?? 0;
+}
+
+function isCourseCompleted(course: Course | null | undefined): boolean {
+  return getCourseCompletionPercentage(course) >= 100;
+}
+
+function isCourseStarted(course: Course | null | undefined): boolean {
+  return getCourseCompletionPercentage(course) > 0;
+}
+
+function getCourseRecencyScore(course: Course): number {
+  const createdAt = course.created_at ? Date.parse(course.created_at) : 0;
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
+function selectPrimaryCourseForTopic(courses: Course[] | undefined, topicId: number): Course | null {
+  const topicCourses = (courses ?? []).filter((course) => course.topic_id === topicId);
+  if (topicCourses.length === 0) return null;
+
+  const newestFirst = (left: Course, right: Course) =>
+    getCourseRecencyScore(right) - getCourseRecencyScore(left) || right.id - left.id;
+
+  const completedCourse = topicCourses.filter(isCourseCompleted).sort(newestFirst)[0];
+  if (completedCourse) return completedCourse;
+
+  const startedCourse = topicCourses.filter(isCourseStarted).sort(newestFirst)[0];
+  if (startedCourse) return startedCourse;
+
+  const generatingCourse = topicCourses.filter((course) => course.status === 'generating').sort(newestFirst)[0];
+  if (generatingCourse) return generatingCourse;
+
+  const readyZeroProgressCourse = topicCourses
+    .filter((course) => course.status === 'ready' && !isCourseStarted(course))
+    .sort(newestFirst)[0];
+  if (readyZeroProgressCourse) return readyZeroProgressCourse;
+
+  return null;
+}
+
+function getCourseActionLabel(course: Course | null | undefined): string {
+  if (!course) return 'Generate Course';
+  if (isCourseCompleted(course)) return 'Review Course';
+  if (course.status === 'generating' || isCourseStarted(course)) return 'Continue Course';
+  return 'Start Course';
+}
+
 function getTierColor(tier: number): string {
   switch (tier) {
     case 1:
@@ -161,25 +209,23 @@ export function RoadmapDetail() {
     if (!roadmap?.nodes) return [];
 
     return roadmap.nodes.map((node) => {
-      const course = courses?.find((c) => c.topic_id === node.topic_id);
+      const course = selectPrimaryCourseForTopic(courses, node.topic_id);
       const prerequisites = connectionMap.get(node.id) || [];
+      const completionPercentage = getCourseCompletionPercentage(course);
 
       // Determine status based on roadmap availability and course lifecycle
       let status: NodeStatus = node.status === 'locked' ? 'recommended' : 'available';
-      let nodeProgress = 0;
+      let nodeProgress = completionPercentage;
 
-      if (node.status === 'completed') {
+      if (node.status === 'completed' || completionPercentage >= 100) {
         status = 'completed';
         nodeProgress = 100;
       } else if (course) {
-        if (course.status === 'generating') {
+        if (course.status === 'generating' || completionPercentage > 0) {
           status = 'in-progress';
-          nodeProgress = 35;
-        } else if (course.status === 'ready') {
-          status = 'in-progress';
-          nodeProgress = 70;
+          nodeProgress = completionPercentage;
         } else {
-          status = 'available';
+          status = node.status === 'locked' ? 'recommended' : 'available';
         }
       }
 
@@ -187,7 +233,7 @@ export function RoadmapDetail() {
         ...node,
         status,
         progress: nodeProgress,
-        course,
+        course: course ?? undefined,
         prerequisites,
       };
     });
@@ -752,7 +798,15 @@ export function RoadmapDetail() {
                     <div className="p-4 bg-indigo-500/10 rounded-lg border border-indigo-500/20 space-y-3">
                       <div className="flex items-center gap-2">
                         <GraduationCap className="w-5 h-5 text-indigo-400" />
-                        <span className="font-semibold text-indigo-300">Course Generated</span>
+                        <span className="font-semibold text-indigo-300">
+                          {isCourseCompleted(selectedNode.course)
+                            ? 'Course Complete'
+                            : selectedNode.course.status === 'generating'
+                              ? 'Course Generating'
+                              : isCourseStarted(selectedNode.course)
+                                ? 'Course In Progress'
+                                : 'Course Ready'}
+                        </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div className="flex items-center gap-2 text-slate-400">
@@ -797,9 +851,13 @@ export function RoadmapDetail() {
                             className="w-full justify-center gap-2 relative overflow-hidden group"
                           >
                             <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-                            {selectedNode.status === 'completed' ? (
+                            {getCourseActionLabel(selectedNode.course) === 'Review Course' ? (
                               <>
                                 <Scroll className="w-4 h-4" /> Review Course
+                              </>
+                            ) : getCourseActionLabel(selectedNode.course) === 'Start Course' ? (
+                              <>
+                                <Play className="w-4 h-4" /> Start Course
                               </>
                             ) : (
                               <>

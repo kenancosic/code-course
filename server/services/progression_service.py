@@ -84,3 +84,7 @@ def get_or_create_profile(db: Session) -> UserProfile:
         db.commit()
         db.refresh(profile)
     return profile
+
+
+def get_current_profile_id(db: Session) -> int:
+    return get_or_create_profile(db).id

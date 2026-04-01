@@ -224,19 +224,8 @@ def seed_roadmap_from_json(db, filepath):
         )
 
 
-def seed_data(db):
-    """Seed all roadmaps from JSON files and create default user profile."""
-    print("Loading roadmap data from JSON files...")
-
-    for filename in JSON_FILES:
-        filepath = os.path.join(DATA_DIR, filename)
-        if not os.path.exists(filepath):
-            print(f"  WARNING: {filepath} not found, skipping.")
-            continue
-        seed_roadmap_from_json(db, filepath)
-
-    # Create default user profile
-    print("Creating default user profile...")
+def ensure_default_user_profile(db):
+    """Create the default single-user profile if it does not already exist."""
     user = db.query(UserProfile).filter(UserProfile.id == 1).first()
     if not user:
         user = UserProfile(
@@ -248,6 +237,23 @@ def seed_data(db):
             current_path_id=None,
         )
         db.add(user)
+    return user
+
+
+def seed_data(db):
+    """Seed all roadmaps from JSON files and create default user profile."""
+    print("Creating default user profile...")
+    ensure_default_user_profile(db)
+    db.commit()
+
+    print("Loading roadmap data from JSON files...")
+
+    for filename in JSON_FILES:
+        filepath = os.path.join(DATA_DIR, filename)
+        if not os.path.exists(filepath):
+            print(f"  WARNING: {filepath} not found, skipping.")
+            continue
+        seed_roadmap_from_json(db, filepath)
 
     db.commit()
     print("Done.")
