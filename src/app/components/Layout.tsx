@@ -88,7 +88,10 @@ export function Layout() {
         </SidebarContent>
 
         <SidebarFooter className="p-4 border-t border-border bg-background/30 relative z-10 group-data-[collapsible=icon]:p-2">
-          <div className="flex items-center gap-3 bg-card p-3 rounded-sm border border-border shadow-sm group-hover:border-primary/50 transition-colors cursor-pointer group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:border-none group-data-[collapsible=icon]:shadow-none">
+          <Link
+            to="/profile"
+            className="group/profile flex items-center gap-3 rounded-sm border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/50 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-none group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none"
+          >
             <div className="w-12 h-12 rounded-sm bg-secondary flex items-center justify-center border-2 border-primary overflow-hidden shadow-inner shrink-0 relative group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:border">
               {isLoading ? (
                 <Skeleton className="w-full h-full" />
@@ -100,7 +103,7 @@ export function Layout() {
                       : `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile?.display_name || 'Felix'}`
                   }
                   alt="Avatar"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover/profile:scale-110"
                 />
               )}
               <div className="absolute inset-0 ring-1 ring-inset ring-black/10"></div>
@@ -122,7 +125,7 @@ export function Layout() {
                 </>
               )}
             </div>
-          </div>
+          </Link>
         </SidebarFooter>
       </Sidebar>
 

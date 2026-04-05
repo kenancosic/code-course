@@ -24,7 +24,7 @@ The current milestone keeps the app as a modular monolith:
 - Frontend: React 18, TypeScript, Vite, Tailwind, TanStack Query
 - Backend: FastAPI, SQLAlchemy, Alembic, Pydantic
 - Database: SQLite
-- LLM: OpenAI via LiteLLM
+- LLM: Local Codex CLI broker by default, with an optional OpenAI fallback path still present in the backend
 
 ## Prerequisites
 
@@ -53,21 +53,36 @@ VITE_API_BASE_URL=/api
 
 ```bash
 cd server
-uv venv
-.\.venv\Scripts\activate
-uv pip install -r requirements.txt
+py -3.11 -m venv venv
+.\venv\Scripts\activate
+python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 alembic upgrade head
 python -m seed.seed_roadmaps
 ```
 
-Optional for LLM-backed generation and evaluation:
+Or from the repo root on Windows:
 
-```env
-OPENAI_API_KEY=your-key-here
+```bash
+pnpm run setup:local
 ```
 
-Without an API key, custom roadmap generation falls back to a deterministic roadmap shape. AI-backed practice generation, AI helper feedback, and lesson evaluation return a clear configuration error until `OPENAI_API_KEY` is set.
+Optional and recommended for local AI-backed generation and evaluation:
+
+```env
+AI_BACKEND=codex_cli
+CODEX_EXECUTABLE=codex
+CODEX_WORKDIR=.
+CODEX_TIMEOUT_SECONDS=120
+CODEX_QUEUE_MAXSIZE=8
+CODEX_MAX_RETRIES=2
+```
+
+This local hack assumes Codex CLI is installed and already logged in on your machine. The backend writes each AI job to a temporary prompt file, queues requests through one in-process worker, invokes local `codex`, and then parses the final answer back into the app.
+
+If local Codex is not configured or unavailable, custom roadmap generation falls back to a deterministic roadmap shape. AI-backed practice generation, AI helper feedback, and lesson evaluation return a clear `503` error until `CODEX_EXECUTABLE` points at a working Codex CLI installation.
+
+The old `OPENAI_API_KEY` setting is still accepted by the codebase as a dormant fallback for non-`codex_cli` backends, but it is no longer the default mode.
 
 ## Run The App
 
@@ -76,20 +91,23 @@ Without an API key, custom roadmap generation falls back to a deterministic road
 Backend:
 
 ```bash
-cd server
-.\venv\Scripts\activate
-uvicorn server.main:app --reload --port 8000
+powershell -ExecutionPolicy Bypass -File .\scripts\run-backend.ps1
 ```
 
 Frontend:
 
 ```bash
+corepack enable
+corepack prepare pnpm@latest --activate
+pnpm install
 pnpm dev
 ```
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:8000`
 - Health check: `http://localhost:8000/health`
+
+`/health` now includes an `ai` section with the backend mode, resolved Codex executable, queue length, worker status, and the last runner error when local Codex mode is active.
 
 ### Production Build
 

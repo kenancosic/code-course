@@ -20,8 +20,8 @@ import { toast } from 'sonner';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { Separator } from '../components/ui/separator';
 import { Skeleton } from '../components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Textarea } from '../components/ui/textarea';
 import {
   generateCourseStream,
@@ -99,6 +99,8 @@ function normalizeResults(results: PracticeTestResult[] | undefined) {
   }));
 }
 
+type WorkspaceTab = 'console' | 'tests' | 'helper';
+
 function EncounterRail({
   room,
   activeEncounterId,
@@ -168,7 +170,7 @@ function RemediationPanel({
       </div>
       <div className="space-y-3">
         {actions.map((action) => (
-          <div key={`${action.type}-${action.label}`} className="rounded-2xl border border-amber-400/20 bg-black/10 p-3">
+          <div key={`${action.type}-${action.label}`} className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-3">
             <div className="font-medium text-amber-50">{action.label}</div>
             <p className="mt-1 text-sm text-amber-100/75">{action.description}</p>
             {action.type === 'spawn_more' ? (
@@ -222,6 +224,7 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
   const [courseGenerationStatus, setCourseGenerationStatus] = useState<string | null>(null);
   const [isGeneratingCourse, setIsGeneratingCourse] = useState(false);
   const [submission, setSubmission] = useState<PracticeSubmissionResponse | null>(null);
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('console');
 
   const activeEncounter = room?.encounters.find((encounter) => encounter.id === activeEncounterId) ?? null;
   const bossEncounter = room?.encounters.find((encounter) => encounter.encounter_type === 'boss') ?? null;
@@ -234,18 +237,23 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
       room.encounters[0] ??
       null;
     if (nextEncounter) {
-      setActiveEncounterId(nextEncounter.id);
+      queueMicrotask(() => {
+        setActiveEncounterId(nextEncounter.id);
+      });
     }
   }, [activeEncounterId, room]);
 
   useEffect(() => {
     if (!room || !activeEncounter) return;
-    setLanguage(activeEncounter.challenge.language);
-    setCode(readDraft(room.id, activeEncounter.id, starterCode(activeEncounter)));
-    setOutput('> Awaiting invocation...');
-    setResults([]);
-    setFeedback(null);
-    setSubmission(null);
+    queueMicrotask(() => {
+      setLanguage(activeEncounter.challenge.language);
+      setCode(readDraft(room.id, activeEncounter.id, starterCode(activeEncounter)));
+      setOutput('> Awaiting invocation...');
+      setResults([]);
+      setFeedback(null);
+      setSubmission(null);
+      setWorkspaceTab('console');
+    });
   }, [activeEncounter, room]);
 
   useEffect(() => {
@@ -339,8 +347,10 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
       setSubmission(null);
       setOutput(response.stdout || response.stderr || '> Execution complete');
       setResults(response.test_results ?? []);
+      setWorkspaceTab(response.test_results?.length ? 'tests' : 'console');
     } catch (error) {
       setOutput('> Execution failed.');
+      setWorkspaceTab('console');
       toast.error(error instanceof Error ? error.message : 'Failed to run code.');
     }
   };
@@ -352,6 +362,7 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
       setSubmission(response);
       setOutput(response.stdout || response.stderr || '> Submission complete');
       setResults(response.visible_test_results ?? []);
+      setWorkspaceTab('tests');
 
       if (response.room.status === 'completed') {
         setFeedback('Boss defeated. The room is complete.');
@@ -383,6 +394,7 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
         test_results: normalizeResults(results),
       });
       setFeedback(response.feedback);
+      setWorkspaceTab('helper');
       toast.info(`Score ${response.score}/100`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to evaluate solution.');
@@ -579,7 +591,7 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
           <p className="text-sm text-muted-foreground">Select an encounter from the rail to begin.</p>
         )
       }
-      workspaceTitle="spellbook"
+      workspaceTitle="Spellbook"
       workspaceMeta={
         <>
           <Badge variant="outline">{language}</Badge>
@@ -588,12 +600,24 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
       }
       workspace={
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#111827]">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-300" />
-              <span>{selectedChallenge?.title ?? 'Untitled encounter'}</span>
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-4 py-3 text-xs text-slate-300">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Sparkles className="h-4 w-4 text-amber-300" />
+                <span className="truncate">{selectedChallenge?.title ?? 'Untitled encounter'}</span>
+              </div>
+              <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-slate-500">
+                {activeIsBoss ? 'Boss encounter' : 'Practice encounter'} · {visibleTestCount} visible tests
+              </p>
             </div>
-            <span className="uppercase tracking-[0.24em]">{language}</span>
+            <div className="flex flex-wrap gap-2">
+              <Badge className={cn('border', difficultyBadge(selectedChallenge?.difficulty ?? room.difficulty))}>
+                {selectedChallenge?.difficulty ?? room.difficulty}
+              </Badge>
+              <Badge variant="outline" className="border-white/10 text-slate-300">
+                {language}
+              </Badge>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1">
@@ -616,72 +640,138 @@ function PracticeRoomContent({ roomId }: { roomId: string }) {
             />
           </div>
 
-          <div className="flex flex-wrap gap-2 border-t border-white/10 px-4 py-3">
-            <Button variant="outline" onClick={() => void runCode()} disabled={execute.isPending || !activeEncounter} className="gap-2">
-              {execute.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              Run
-            </Button>
-            <Button onClick={() => void submitEncounter()} disabled={submit.isPending || !canSubmitActiveEncounter} className="gap-2">
-              {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Submit
-            </Button>
-            <Button variant="outline" onClick={() => setCode(starterCode(activeEncounter))} disabled={!activeEncounter} className="gap-2">
-              <RotateCcw className="h-4 w-4" />
-              Reset
-            </Button>
-            <Button variant="outline" onClick={() => void evaluateSolution()} disabled={evaluate.isPending || results.length === 0 || !activeEncounter} className="gap-2">
-              <Target className="h-4 w-4" />
-              AI Helper
-            </Button>
+          <div className="border-t border-white/10 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => void runCode()}
+                  disabled={execute.isPending || !activeEncounter}
+                  className="gap-2 border-white/10 text-slate-100 hover:bg-white/10"
+                >
+                  {execute.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  Run
+                </Button>
+                <Button onClick={() => void submitEncounter()} disabled={submit.isPending || !canSubmitActiveEncounter} className="gap-2">
+                  {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Submit
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCode(starterCode(activeEncounter))}
+                  disabled={!activeEncounter}
+                  className="gap-2 border-white/10 text-slate-100 hover:bg-white/10"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset
+                </Button>
+              </div>
+              <p className="max-w-md text-xs text-slate-500">
+                Run against visible tests first, then submit when you are ready to spend or recover attempt tokens.
+              </p>
+            </div>
           </div>
 
-          <Separator className="bg-white/10" />
+          <div className="min-h-[16rem] border-t border-white/10 bg-black/20 px-4 py-3">
+            <Tabs value={workspaceTab} onValueChange={(value) => setWorkspaceTab(value as WorkspaceTab)} className="flex h-full min-h-0 flex-col">
+              <TabsList className="w-full justify-start gap-1 bg-white/5">
+                <TabsTrigger value="console" className="sm:flex-none">
+                  Console
+                </TabsTrigger>
+                <TabsTrigger value="tests" className="sm:flex-none">
+                  Tests
+                </TabsTrigger>
+                <TabsTrigger value="helper" className="sm:flex-none">
+                  AI Helper
+                </TabsTrigger>
+              </TabsList>
 
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-3 p-4">
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-sm text-slate-200">
-                <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500">Console</div>
-                <pre className={cn('whitespace-pre-wrap break-words', output.includes('Error') ? 'text-rose-300' : 'text-slate-200')}>
-                  {output}
-                </pre>
-              </div>
+              <TabsContent value="console" className="mt-3 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full rounded-2xl border border-white/10 bg-black/30">
+                  <div className="p-4">
+                    <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500">Latest run</div>
+                    <pre className={cn('whitespace-pre-wrap break-words font-mono text-sm', output.includes('Error') ? 'text-rose-300' : 'text-slate-200')}>
+                      {output}
+                    </pre>
+                  </div>
+                </ScrollArea>
+              </TabsContent>
 
-              {results.length ? (
-                <div className="space-y-2 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Visible test results</div>
-                  {results.map((result, index) => (
-                    <div
-                      key={`${result.input}-${index}`}
-                      className={cn(
-                        'flex gap-3 rounded-xl border p-3 text-sm',
-                        result.passed ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-rose-500/30 bg-rose-500/10'
-                      )}
-                    >
-                      <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        {result.passed ? 'Pass' : 'Fail'}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-slate-300">Input: {result.input}</div>
-                        {!result.passed ? (
-                          <div className="text-slate-400">Expected {result.expected}, got {result.actual}</div>
-                        ) : null}
+              <TabsContent value="tests" className="mt-3 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full rounded-2xl border border-white/10 bg-black/30">
+                  <div className="space-y-3 p-4">
+                    <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Visible test results</div>
+                    {results.length ? (
+                      results.map((result, index) => (
+                        <div
+                          key={`${result.input}-${index}`}
+                          className={cn(
+                            'flex gap-3 rounded-xl border p-3 text-sm',
+                            result.passed ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-rose-500/30 bg-rose-500/10'
+                          )}
+                        >
+                          <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            {result.passed ? 'Pass' : 'Fail'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-slate-300">Input: {result.input}</div>
+                            {!result.passed ? (
+                              <div className="text-slate-400">Expected {result.expected}, got {result.actual}</div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-sm text-slate-400">
+                        No visible test results yet. Run or submit your solution to inspect the encounter.
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
 
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500">AI helper prompt</div>
-                <Textarea
-                  value={helperPrompt}
-                  onChange={(event) => setHelperPrompt(event.target.value)}
-                  placeholder="Ask for a hint, a debugging angle, or a smaller sub-problem before running the AI helper."
-                  className="min-h-[8rem] border-white/10 bg-black/30 text-slate-100"
-                />
-              </div>
-            </div>
-          </ScrollArea>
+              <TabsContent value="helper" className="mt-3 min-h-0 overflow-hidden">
+                <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/10 bg-black/30">
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="text-xs uppercase tracking-[0.24em] text-slate-500">AI helper</div>
+                      <p className="mt-1 text-sm text-slate-300">
+                        Ask for a hint, debugging angle, or smaller sub-problem after you inspect the visible tests.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => void evaluateSolution()}
+                      disabled={evaluate.isPending || results.length === 0 || !activeEncounter}
+                      className="gap-2 border-white/10 text-slate-100 hover:bg-white/10"
+                    >
+                      {evaluate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+                      Ask AI
+                    </Button>
+                  </div>
+
+                  <ScrollArea className="min-h-0 flex-1">
+                    <div className="space-y-4 p-4">
+                      <Textarea
+                        value={helperPrompt}
+                        onChange={(event) => setHelperPrompt(event.target.value)}
+                        placeholder="Ask for a hint, a debugging angle, or a smaller sub-problem before running the AI helper."
+                        className="min-h-[10rem] border-white/10 bg-black/20 text-slate-100"
+                      />
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        The helper becomes most useful after a run or submission, because it can read your latest visible test results.
+                      </p>
+                      {feedback ? (
+                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200">
+                          {feedback}
+                        </div>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       }
     />

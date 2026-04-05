@@ -68,7 +68,7 @@ def _fallback_roadmap(topic: str) -> dict:
 
 async def _llm_roadmap(topic: str) -> dict:
     settings = get_settings()
-    if not settings.OPENAI_API_KEY:
+    if not settings.is_ai_configured():
         return _fallback_roadmap(topic)
 
     messages = [
@@ -94,6 +94,7 @@ async def _llm_roadmap(topic: str) -> dict:
             model=settings.LLM_FAST_MODEL,
             temperature=0.4,
             max_tokens=2048,
+            output_kind="json_object",
         )
     except Exception as exc:
         logger.warning("Falling back to deterministic roadmap for %s: %s", topic, exc)

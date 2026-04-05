@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   BookOpen,
@@ -17,7 +17,8 @@ import { toast } from 'sonner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { Checkbox } from '../components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -53,6 +54,14 @@ function templateTone(challenge: PracticeChallenge) {
   return 'border-border/70 bg-background/35';
 }
 
+const EMPTY_FLOORS: PracticeFloorSummary[] = [];
+const EMPTY_FILTERS = {
+  categories: [] as string[],
+  subcategories: [] as string[],
+  languages: ['javascript', 'python'] as PracticeLanguage[],
+  difficulties: ['easy', 'medium', 'hard'] as PracticeDifficulty[],
+};
+
 function GenerateChallengeDialog({ floors }: { floors: PracticeFloorSummary[] }) {
   const generate = useGeneratePracticeChallenge();
   const [open, setOpen] = useState(false);
@@ -63,12 +72,8 @@ function GenerateChallengeDialog({ floors }: { floors: PracticeFloorSummary[] })
   const [practiceGoal, setPracticeGoal] = useState('');
   const [boss, setBoss] = useState(false);
 
-  const selectedFloor = floors.find((floor) => floor.id === floorId) ?? floors[0] ?? null;
-
-  useEffect(() => {
-    if (!selectedFloor) return;
-    if (floorId === null) setFloorId(selectedFloor.id);
-  }, [floorId, selectedFloor]);
+  const effectiveFloorId = floors.some((floor) => floor.id === floorId) ? floorId : (floors[0]?.id ?? null);
+  const selectedFloor = floors.find((floor) => floor.id === effectiveFloorId) ?? floors[0] ?? null;
 
   const submit = async () => {
     if (!selectedFloor) return;
@@ -91,22 +96,39 @@ function GenerateChallengeDialog({ floors }: { floors: PracticeFloorSummary[] })
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="fantasy" className="gap-2">
+        <Button variant="fantasy" className="gap-2" disabled={!floors.length}>
           <Wand2 className="h-4 w-4" />
           Generate Challenge
         </Button>
       </DialogTrigger>
-      <DialogContent className="grid max-h-[min(46rem,calc(100svh-2rem))] w-[min(96vw,52rem)] gap-4 overflow-hidden border-border bg-card text-foreground">
-        <DialogHeader>
+      <DialogContent className="grid max-h-[min(46rem,calc(100svh-2rem))] w-[min(96vw,52rem)] gap-0 overflow-hidden rounded-2xl border-border/70 bg-card/95 p-0 text-foreground shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+        <DialogHeader className="border-b border-border/70 px-6 py-5">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             Forge a New Challenge
           </DialogTitle>
+          <DialogDescription>
+            Shape a focused practice encounter for one floor, one language, and one learning goal.
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 overflow-y-auto pr-1 sm:grid-cols-2">
+        <div className="grid gap-4 overflow-y-auto px-6 py-5 sm:grid-cols-2">
+          {selectedFloor ? (
+            <div className="rounded-2xl border border-border/70 bg-background/35 p-4 sm:col-span-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{selectedFloor.category}</Badge>
+                <Badge variant="outline">{selectedFloor.subcategory}</Badge>
+                <Badge className={cn('border', difficultyBadge(selectedFloor.difficulty_levels[0]))}>
+                  {selectedFloor.difficulty_levels.join(' / ')}
+                </Badge>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {selectedFloor.description ?? 'This floor connects roadmap topics into a practice area.'}
+              </p>
+            </div>
+          ) : null}
           <div className="space-y-2 sm:col-span-2">
             <Label>Floor</Label>
-            <Select value={String(floorId ?? selectedFloor?.id ?? '')} onValueChange={(value) => setFloorId(Number(value))}>
+            <Select value={String(effectiveFloorId ?? '')} onValueChange={(value) => setFloorId(Number(value))}>
               <SelectTrigger>
                 <SelectValue placeholder="Choose a floor" />
               </SelectTrigger>
@@ -161,25 +183,35 @@ function GenerateChallengeDialog({ floors }: { floors: PracticeFloorSummary[] })
               placeholder="Describe exactly what you want this challenge to strengthen."
             />
           </div>
-          <label className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/30 px-4 py-3 sm:col-span-2">
-            <input type="checkbox" checked={boss} onChange={(event) => setBoss(event.target.checked)} />
-            <span className="text-sm text-muted-foreground">Generate a boss-tier challenge</span>
+          <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-background/35 px-4 py-4 sm:col-span-2">
+            <Checkbox checked={boss} onCheckedChange={(checked) => setBoss(checked === true)} className="mt-1" />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium text-foreground">Make this a boss-tier challenge</span>
+              <span className="block text-sm text-muted-foreground">
+                Increase the pressure with a wider concept mix and less margin for error.
+              </span>
+            </span>
           </label>
         </div>
-        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={() => void submit()} disabled={generate.isPending || !selectedFloor}>
-            {generate.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Forging...
-              </>
-            ) : (
-              'Generate'
-            )}
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-6 py-4">
+          <p className="text-sm text-muted-foreground">
+            {selectedFloor ? floorLabel(selectedFloor) : 'Choose a floor to begin.'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void submit()} disabled={generate.isPending || !selectedFloor}>
+              {generate.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Forging...
+                </>
+              ) : (
+                'Forge Challenge'
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -206,55 +238,52 @@ function FloorCard({
 
   return (
     <AccordionItem value={String(floor.id)} className="rounded-2xl border border-border/70 bg-card/50 px-4">
-      <AccordionTrigger className="py-4 hover:no-underline">
-        <div className="flex w-full flex-wrap items-center gap-3 text-left">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-3 py-4 md:flex-row md:items-start md:justify-between">
+        <AccordionTrigger className="min-w-0 flex-1 py-0 hover:no-underline">
+          <div className="flex min-w-0 flex-1 flex-col text-left">
+            <div className="flex flex-wrap items-center gap-2 pr-2">
               <h3 className="truncate text-lg font-semibold text-foreground">{floorLabel(floor)}</h3>
               <Badge className={cn('border', difficultyBadge(primaryDifficulty))}>{primaryDifficulty}</Badge>
+              <Badge variant="outline" className="gap-1">
+                <Sword className="h-3.5 w-3.5" />
+                {floor.category}
+              </Badge>
+              <Badge variant="outline" className="gap-1">
+                <Shield className="h-3.5 w-3.5" />
+                {floor.subcategory}
+              </Badge>
             </div>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
               {floor.description ?? 'This floor connects roadmap topics into a practice area.'}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="gap-1">
-              <Sword className="h-3.5 w-3.5" />
-              {floor.category}
-            </Badge>
-            <Badge variant="outline" className="gap-1">
-              <Shield className="h-3.5 w-3.5" />
-              {floor.subcategory}
-            </Badge>
-            {floor.active_room_id ? (
-              <Button asChild size="sm" variant="outline" onClick={(event) => event.stopPropagation()}>
-                <Link to={`/practice/room/${floor.active_room_id}`}>Resume Room</Link>
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isCreating}
-              onClick={(event) => {
-                event.stopPropagation();
-                onChallenge(floor.id);
-              }}
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Forging Room
-                </>
-              ) : (
-                <>
-                  Challenge Floor
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </>
-              )}
+        </AccordionTrigger>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
+          {floor.active_room_id ? (
+            <Button asChild size="sm">
+              <Link to={`/practice/room/${floor.active_room_id}`}>Resume Room</Link>
             </Button>
-          </div>
+          ) : null}
+          <Button
+            size="sm"
+            variant={floor.active_room_id ? 'outline' : 'default'}
+            disabled={isCreating}
+            onClick={() => onChallenge(floor.id)}
+          >
+            {isCreating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Forging Room
+              </>
+            ) : (
+              <>
+                Challenge Floor
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
         </div>
-      </AccordionTrigger>
+      </div>
       <AccordionContent className="pb-4">
         {detailQuery.isLoading ? (
           <div className="grid gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]">
@@ -373,24 +402,13 @@ export function Practice() {
     category === 'all' ? undefined : category,
     subcategory === 'all' ? undefined : subcategory
   );
-  const floors = data?.floors ?? [];
-  const filters = data?.filters ?? {
-    categories: [],
-    subcategories: [],
-    languages: ['javascript', 'python'],
-    difficulties: ['easy', 'medium', 'hard'],
-  };
+  const floors = data?.floors ?? EMPTY_FLOORS;
+  const filters = data?.filters ?? EMPTY_FILTERS;
 
   const subcategoryOptions = useMemo(() => {
     if (category === 'all') return filters.subcategories;
     return Array.from(new Set(floors.map((floor) => floor.subcategory))).sort((left, right) => left.localeCompare(right));
   }, [category, filters.subcategories, floors]);
-
-  useEffect(() => {
-    if (subcategory !== 'all' && !subcategoryOptions.includes(subcategory)) {
-      setSubcategory('all');
-    }
-  }, [subcategory, subcategoryOptions]);
 
   const filtered = useMemo(
     () =>
@@ -434,7 +452,7 @@ export function Practice() {
         <GenerateChallengeDialog floors={floors} />
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-border/70 bg-card/35 p-4 xl:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(10rem,13rem))]">
+      <div className="grid gap-3 rounded-2xl border border-border/70 bg-card/35 p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(10rem,13rem))]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -444,7 +462,13 @@ export function Practice() {
             className="pl-9"
           />
         </div>
-        <Select value={category} onValueChange={setCategory}>
+        <Select
+          value={category}
+          onValueChange={(value) => {
+            setCategory(value);
+            setSubcategory('all');
+          }}
+        >
           <SelectTrigger>
             <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Category" />
@@ -458,7 +482,10 @@ export function Practice() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={subcategory} onValueChange={setSubcategory}>
+        <Select
+          value={subcategoryOptions.includes(subcategory) ? subcategory : 'all'}
+          onValueChange={setSubcategory}
+        >
           <SelectTrigger>
             <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Subcategory" />

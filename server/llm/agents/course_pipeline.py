@@ -70,6 +70,7 @@ async def agent_outline(ctx: PipelineContext) -> AsyncGenerator[str, None]:
             model=settings.LLM_FAST_MODEL,
             temperature=0.7,
             max_tokens=2000,
+            output_kind="json_object",
         )
 
         ctx.outline = CourseOutline(
@@ -86,8 +87,9 @@ async def agent_outline(ctx: PipelineContext) -> AsyncGenerator[str, None]:
         })
 
     except Exception as e:
-        logger.error("Outline agent failed: %s", str(e))
-        yield sse_event("error", {"stage": "outline", "message": f"Outline generation failed: {str(e)}"})
+        logger.exception("Outline agent failed: %r", e)
+        message = str(e) or repr(e)
+        yield sse_event("error", {"stage": "outline", "message": f"Outline generation failed: {message}"})
         raise
 
 
@@ -128,6 +130,7 @@ async def agent_lessons(ctx: PipelineContext) -> AsyncGenerator[str, None]:
                 model=ctx.model or settings.LLM_DEFAULT_MODEL,
                 temperature=0.7,
                 max_tokens=4096,
+                output_kind="json_object",
             )
             
             # Since we switched to JSON, we'll just yield the final chunk once
@@ -164,8 +167,9 @@ async def agent_lessons(ctx: PipelineContext) -> AsyncGenerator[str, None]:
                 await asyncio.sleep(0.1)
                 
         except Exception as e:
-            logger.error(f"Failed to generate lesson {i}: {str(e)}")
-            yield sse_event("error", {"stage": "lesson", "message": f"Failed to generate lesson {i}: {str(e)}"})
+            logger.exception("Failed to generate lesson %s: %r", i, e)
+            message = str(e) or repr(e)
+            yield sse_event("error", {"stage": "lesson", "message": f"Failed to generate lesson {i}: {message}"})
             raise
 
 
@@ -203,6 +207,7 @@ async def agent_exercises(ctx: PipelineContext) -> AsyncGenerator[str, None]:
             model=ctx.model or settings.LLM_DEFAULT_MODEL,
             temperature=0.7,
             max_tokens=4096,
+            output_kind="json_array",
         )
 
         ctx.exercises_data = result if isinstance(result, list) else []
@@ -214,7 +219,7 @@ async def agent_exercises(ctx: PipelineContext) -> AsyncGenerator[str, None]:
         })
 
     except Exception as e:
-        logger.error("Exercises agent failed: %s", str(e))
+        logger.exception("Exercises agent failed: %r", e)
         # Non-fatal — course can exist without exercises
         ctx.exercises_data = []
         yield sse_event("status", {
@@ -257,6 +262,7 @@ async def agent_quiz(ctx: PipelineContext) -> AsyncGenerator[str, None]:
             model=settings.LLM_FAST_MODEL,
             temperature=0.7,
             max_tokens=4096,
+            output_kind="json_array",
         )
 
         ctx.quiz_data = result if isinstance(result, list) else []
@@ -268,7 +274,7 @@ async def agent_quiz(ctx: PipelineContext) -> AsyncGenerator[str, None]:
         })
 
     except Exception as e:
-        logger.error("Quiz agent failed: %s", str(e))
+        logger.exception("Quiz agent failed: %r", e)
         # Non-fatal
         ctx.quiz_data = []
         yield sse_event("status", {
@@ -308,6 +314,7 @@ async def run_pipeline(ctx: PipelineContext) -> AsyncGenerator[str, None]:
         yield sse_event("status", {"stage": "saving", "message": "Inscribing course into the archives..."})
 
     except Exception as e:
-        logger.error("Pipeline error: %s", str(e))
-        yield sse_event("error", {"message": f"Pipeline failed: {str(e)}"})
+        logger.exception("Pipeline error: %r", e)
+        message = str(e) or repr(e)
+        yield sse_event("error", {"message": f"Pipeline failed: {message}"})
         raise

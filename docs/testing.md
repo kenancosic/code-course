@@ -353,9 +353,11 @@ pnpm dev
 - Verify backend CORS settings include frontend URL
 - Check proxy configuration in vite.config.ts
 
-**LLM API errors:**
-- Verify OPENAI_API_KEY is set
-- Check API key has sufficient credits
+**Local Codex broker errors:**
+- Verify `AI_BACKEND=codex_cli`
+- Verify `CODEX_EXECUTABLE` points to a working `codex` CLI command or full path
+- Confirm Codex CLI is installed and logged in on this machine
+- Check `/health` for queue status, resolved executable path, and the last runner error
 
 **Code execution fails:**
 - Ensure Node.js is installed for JavaScript execution

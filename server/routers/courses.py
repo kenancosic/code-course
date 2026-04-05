@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from server.database import get_db
-from server.errors import api_error
+from server.errors import AIConfigurationError, AIExecutionError, api_error
 from server.models import Course, CourseEnrollment, Topic
 from server.schemas.course import CourseResponse, LessonResponse, GenerateCourseRequest, EvaluateTaskRequest
 from server.services import course_service
@@ -105,6 +105,8 @@ async def evaluate_lesson_task(
             "xp_earned": result.get("xp_earned", lesson.xp_reward or 0),
         }
     except Exception as e:
+        if isinstance(e, (AIConfigurationError, AIExecutionError)):
+            raise
         raise api_error(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             f"Evaluation failed: {str(e)}",

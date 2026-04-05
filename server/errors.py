@@ -24,6 +24,14 @@ class AIConfigurationError(RuntimeError):
     """Raised when an AI-backed feature is requested without a configured provider."""
 
 
+class AIExecutionError(RuntimeError):
+    """Raised when the configured AI backend cannot complete a request."""
+
+    def __init__(self, message: str, details: object | None = None) -> None:
+        super().__init__(message)
+        self.details = details
+
+
 async def ai_configuration_exception_handler(
     _: Request, exc: AIConfigurationError
 ) -> JSONResponse:
@@ -31,7 +39,20 @@ async def ai_configuration_exception_handler(
         status_code=503,
         content=error_payload(
             "AI_NOT_CONFIGURED",
-            str(exc) or "OpenAI is not configured for this environment.",
+            str(exc) or "Local Codex is not configured for this environment.",
+        ),
+    )
+
+
+async def ai_execution_exception_handler(
+    _: Request, exc: AIExecutionError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content=error_payload(
+            "AI_UNAVAILABLE",
+            str(exc) or "Local Codex is unavailable or returned invalid output.",
+            exc.details,
         ),
     )
 

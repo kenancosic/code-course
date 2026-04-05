@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import tempfile
@@ -14,8 +15,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import server.config as server_config
 import server.models  # noqa: F401
 from server.database import Base, get_db
+from server.errors import AIExecutionError
+from server.llm.codex_broker import stop_codex_queue
 
 if "litellm" not in sys.modules:
     litellm_stub = types.SimpleNamespace(suppress_debug_info=True)
@@ -47,6 +51,7 @@ class ApiContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
         self.upload_dir = tempfile.TemporaryDirectory()
+        self.original_env: dict[str, str | None] = {}
         self.engine = create_engine(
             f"sqlite:///{self.db_path}",
             connect_args={"check_same_thread": False},
@@ -62,25 +67,41 @@ class ApiContractTests(unittest.TestCase):
                 db.close()
 
         app.dependency_overrides[get_db] = override_get_db
-        self.grimoire_settings_patch = patch(
-            "server.services.grimoire_service.get_settings",
-            return_value=types.SimpleNamespace(
-                GRIMOIRE_UPLOAD_DIR=self.upload_dir.name,
-                OPENAI_API_KEY=None,
-                LLM_DEFAULT_MODEL="test-model",
-            ),
-        )
-        self.grimoire_settings_patch.start()
+        self._set_env("AI_BACKEND", "codex_cli")
+        self._set_env("CODEX_EXECUTABLE", "__missing_codex__")
+        self._set_env("CODEX_WORKDIR", os.getcwd())
+        self._set_env("CODEX_TIMEOUT_SECONDS", "5")
+        self._set_env("CODEX_QUEUE_MAXSIZE", "8")
+        self._set_env("CODEX_MAX_RETRIES", "1")
+        self._set_env("GRIMOIRE_UPLOAD_DIR", self.upload_dir.name)
+        self._set_env("OPENAI_API_KEY", None)
+        server_config.get_settings.cache_clear()
+        asyncio.run(stop_codex_queue())
         self.client = TestClient(app)
 
     def tearDown(self) -> None:
+        self.client.close()
         app.dependency_overrides.clear()
-        self.grimoire_settings_patch.stop()
+        asyncio.run(stop_codex_queue())
+        for key, value in self.original_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        server_config.get_settings.cache_clear()
         Base.metadata.drop_all(bind=self.engine)
         self.engine.dispose()
         os.close(self.db_fd)
         os.unlink(self.db_path)
         self.upload_dir.cleanup()
+
+    def _set_env(self, key: str, value: str | None) -> None:
+        if key not in self.original_env:
+            self.original_env[key] = os.environ.get(key)
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
     @contextmanager
     def db_session(self):
@@ -728,6 +749,26 @@ class ApiContractTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["code"], "AI_NOT_CONFIGURED")
+        self.assertIn("Local Codex is not configured", response.json()["message"])
+
+    def test_practice_generation_surfaces_queue_full(self) -> None:
+        floor_id = self.seed_practice_floor()
+        with patch(
+            "server.services.practice_service.completion_json",
+            AsyncMock(side_effect=AIExecutionError("Codex queue is full. Please wait for the current job to finish.")),
+        ):
+            response = self.client.post(
+                "/api/practice/challenges/generate",
+                json={
+                    "floor_id": floor_id,
+                    "language": "python",
+                    "target_difficulty": "easy",
+                },
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "AI_UNAVAILABLE")
+        self.assertIn("Codex queue is full", response.json()["message"])
 
     def test_practice_spawn_regains_attempt_tokens(self) -> None:
         floor_id = self.seed_practice_floor()

@@ -7,7 +7,8 @@
     "build": "vite build",
     "dev": "concurrently \"vite\" \"pnpm:dev:backend\"",
     "dev:frontend": "vite",
-    "dev:backend": "cross-env PYTHONPATH=. uvicorn server.main:app --reload --port 8000",
+    "dev:backend": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run-backend.ps1",
+    "setup:local": "powershell -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; if (!(Test-Path '.env') -and (Test-Path '.env.example')) { Copy-Item '.env.example' '.env' }; if (!(Test-Path 'server\\.env') -and (Test-Path 'server\\.env.example')) { Copy-Item 'server\\.env.example' 'server\\.env' }; if (!(Test-Path 'server\\venv\\Scripts\\python.exe')) { py -3.11 -m venv server\\venv }; & 'server\\venv\\Scripts\\python.exe' -m pip install -r server\\requirements.txt; Push-Location server; try { & '.\\venv\\Scripts\\python.exe' -m alembic upgrade head } finally { Pop-Location }; & 'server\\venv\\Scripts\\python.exe' -m server.seed.seed_roadmaps\"",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "lint:fix": "eslint --fix ."
@@ -78,7 +79,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@prettier/plugin-sort-imports": "^4.0.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "4.1.12",
     "@types/canvas-confetti": "^1.9.0",
@@ -98,7 +98,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.2",
-    "vite": "6.3.5"
+    "vite": "6.4.1"
   },
   "peerDependencies": {
     "react": "18.3.1",
@@ -114,7 +114,10 @@
   },
   "pnpm": {
     "overrides": {
-      "vite": "6.3.5"
+      "brace-expansion": "5.0.5",
+      "dompurify": "3.3.2",
+      "picomatch": "4.0.4",
+      "vite": "6.4.1"
     }
   }
 }

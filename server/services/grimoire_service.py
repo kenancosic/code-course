@@ -669,7 +669,7 @@ async def _generate_lesson_from_section(
     raw_text = (section.raw_text or "").strip()
     summary = section.summary or _summarize_text_fallback(raw_text or section.title)
     task_type = _infer_task_type(section.keywords or [])
-    if settings.OPENAI_API_KEY:
+    if settings.is_ai_configured():
         try:
             result = await client.completion_json(
                 messages=[
@@ -695,6 +695,7 @@ async def _generate_lesson_from_section(
                 model=model or settings.LLM_DEFAULT_MODEL,
                 temperature=0.4,
                 max_tokens=4096,
+                output_kind="json_object",
             )
             content_markdown = result.get("content_markdown")
             generated_task_type = result.get("task_type")

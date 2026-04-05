@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mythic UI Implementation"
+  short_description: "Build and repair MythicCode UI consistently"
+  default_prompt: "Use $mythic-ui-implementation to build, refactor, or repair MythicCode UI so it stays on-theme, responsive, and readable."

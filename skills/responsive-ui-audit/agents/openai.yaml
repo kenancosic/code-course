@@ -1,0 +1,4 @@
+interface:
+  display_name: "Responsive UI Audit"
+  short_description: "Audit MythicCode UI for layout and contrast drift"
+  default_prompt: "Use $responsive-ui-audit to review MythicCode UI for readability, responsive layout, theme-token drift, and action hierarchy issues."

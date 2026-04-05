@@ -116,7 +116,7 @@ Request:
 
 Response: `RoadmapPathResponse`
 
-If an OpenAI key is configured, the roadmap is LLM-shaped. Otherwise the backend returns a deterministic fallback roadmap and still persists it.
+If local Codex CLI is configured, the roadmap is LLM-shaped through the backend's queue-backed Codex broker. Otherwise the backend returns a deterministic fallback roadmap and still persists it.
 
 ## Courses
 
@@ -387,12 +387,21 @@ Returns one floor with related courses and any persisted challenge templates.
 
 Generates and persists a server-owned practice challenge for a floor.
 
-If OpenAI is not configured, this endpoint returns:
+If local Codex is not configured, this endpoint returns:
 
 ```json
 {
   "code": "AI_NOT_CONFIGURED",
-  "message": "AI is not configured. Set OPENAI_API_KEY to use this feature."
+  "message": "Local Codex is not configured. Could not find 'codex' on PATH."
+}
+```
+
+If the single-worker Codex queue is saturated or the local CLI returns unusable output, AI-backed endpoints return `503` with:
+
+```json
+{
+  "code": "AI_UNAVAILABLE",
+  "message": "Codex queue is full. Please wait for the current job to finish."
 }
 ```
 

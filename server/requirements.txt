@@ -25,6 +25,7 @@ httpx>=0.28.0
 
 # Environment variables
 python-dotenv>=1.0.0
+python-multipart>=0.0.20
 
 # Code execution sandbox
 restrictedpython>=8.0

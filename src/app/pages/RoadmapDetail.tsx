@@ -602,46 +602,26 @@ export function RoadmapDetail() {
                                   <BookOpen className="w-3 h-3 text-indigo-400 shrink-0 hidden sm:block" />
                                 )}
                               </div>
-
-                              {/* Hover quick actions */}
-                              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex gap-1 pointer-events-none">
-                                {(node.status === 'available' || node.status === 'recommended') &&
-                                  !node.course && (
-                                  <Badge
-                                    variant="secondary"
-                                    className={cn(
-                                      'text-[10px] whitespace-nowrap',
-                                      node.status === 'recommended'
-                                        ? 'bg-violet-500/20 text-violet-200 border-violet-500/30'
-                                        : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                                    )}
-                                  >
-                                    <Sparkles className="w-3 h-3 mr-1" />
-                                    {node.status === 'recommended' ? 'Deep Dive' : 'Generate'}
-                                  </Badge>
-                                )}
-                                {node.course && (
-                                  <Badge
-                                    variant="secondary"
-                                    className={cn(
-                                      'text-[10px] whitespace-nowrap',
-                                      node.status === 'completed'
-                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                    )}
-                                  >
-                                    {node.status === 'completed' ? 'Completed' : 'Continue'}
-                                  </Badge>
-                                )}
+                              <div className="flex w-full items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em]">
+                                <span className="truncate opacity-80">
+                                  {node.course
+                                    ? node.status === 'completed'
+                                      ? 'Review course'
+                                      : 'Open course'
+                                    : node.status === 'recommended'
+                                      ? 'Deep dive available'
+                                      : 'Generate course'}
+                                </span>
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-70" />
                               </div>
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs hidden sm:block">
                             <div className="space-y-1">
                               <p className="font-semibold">{node.topic.title}</p>
-                              <p className="text-xs text-slate-400">Tier {node.tier}</p>
+                              <p className="text-xs text-muted-foreground">Tier {node.tier}</p>
                               {node.status === 'recommended' && node.prerequisites.length > 0 && (
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-muted-foreground/80">
                                   Suggested before diving deeper:{' '}
                                   {node.prerequisites
                                     .map((p) => roadmap.nodes.find((n) => n.id === p)?.topic.title)
@@ -649,7 +629,7 @@ export function RoadmapDetail() {
                                 </p>
                               )}
                               {node.course && (
-                                <p className="text-xs text-indigo-400">
+                                <p className="text-xs text-primary">
                                   Course available • {node.course.total_xp} XP
                                 </p>
                               )}
@@ -935,37 +915,37 @@ export function RoadmapDetail() {
 
       {/* Subtopic Selection Sheet */}
       <Sheet open={isSubtopicSheetOpen} onOpenChange={setIsSubtopicSheetOpen}>
-        <SheetContent className="w-[90vw] max-w-md bg-slate-900 border-slate-700">
-          <SheetHeader>
-            <SheetTitle className="text-white">Select Subtopics</SheetTitle>
-            <SheetDescription className="text-slate-400">
+        <SheetContent className="w-[min(92vw,32rem)] border-border/70 bg-card/95 text-foreground backdrop-blur-xl">
+          <SheetHeader className="border-b border-border/70 px-6 py-5">
+            <SheetTitle className="font-serif text-2xl text-foreground">Select Subtopics</SheetTitle>
+            <SheetDescription className="text-muted-foreground">
               Choose which subtopics to include in your course for{' '}
               <strong>{selectedNode?.topic.title}</strong>
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto py-6">
+          <div className="flex-1 overflow-y-auto px-6 py-5">
             {topicLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
             ) : topicDetails?.subtopics && topicDetails.subtopics.length > 0 ? (
               <div className="space-y-4">
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-background/35 px-4 py-3 text-sm">
                   <button
                     onClick={handleSelectAllSubtopics}
-                    className="text-indigo-400 hover:text-indigo-300 font-medium"
+                    className="font-medium text-primary transition-colors hover:text-primary/80"
                   >
                     Select All
                   </button>
-                  <span className="text-slate-600">|</span>
+                  <span className="text-border">|</span>
                   <button
                     onClick={handleClearSubtopics}
-                    className="text-slate-400 hover:text-slate-300"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Clear
                   </button>
-                  <span className="text-slate-500 ml-auto">{selectedSubtopics.size} selected</span>
+                  <span className="ml-auto text-muted-foreground">{selectedSubtopics.size} selected</span>
                 </div>
 
                 <div className="space-y-2">
@@ -973,10 +953,10 @@ export function RoadmapDetail() {
                     <label
                       key={subtopic.id}
                       className={cn(
-                        'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                        'flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors',
                         selectedSubtopics.has(subtopic.id)
-                          ? 'bg-indigo-500/10 border-indigo-500/30'
-                          : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800'
+                          ? 'border-primary/40 bg-primary/10'
+                          : 'border-border/70 bg-background/35 hover:bg-background/55'
                       )}
                     >
                       <Checkbox
@@ -985,9 +965,9 @@ export function RoadmapDetail() {
                         className="mt-0.5"
                       />
                       <div className="flex-1">
-                        <p className="font-medium text-slate-200">{subtopic.title}</p>
+                        <p className="font-medium text-foreground">{subtopic.title}</p>
                         {subtopic.description && (
-                          <p className="text-sm text-slate-500 mt-1">{subtopic.description}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{subtopic.description}</p>
                         )}
                       </div>
                     </label>
@@ -995,24 +975,24 @@ export function RoadmapDetail() {
                 </div>
               </div>
             ) : (
-              <p className="text-slate-500 text-center py-8">
+              <p className="py-8 text-center text-muted-foreground">
                 No subtopics available for this topic.
               </p>
             )}
           </div>
 
-          <SheetFooter className="border-t border-slate-700 pt-4">
+          <SheetFooter className="border-t border-border/70 px-6 py-4">
             {isGenerating ? (
               <div className="w-full space-y-3">
-                <div className="flex items-center gap-2 text-sm text-indigo-400">
+                <div className="flex items-center gap-2 text-sm text-primary">
                   <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                   <span className="truncate">{generationStatus}</span>
                 </div>
                 {generationLessons.length > 0 && (
-                  <div className="text-xs text-slate-500 space-y-1 max-h-32 overflow-y-auto">
+                  <div className="max-h-32 space-y-1 overflow-y-auto text-xs text-muted-foreground">
                     {generationLessons.map((title, i) => (
                       <div key={i} className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <CheckCircle2 className="w-3 h-3 shrink-0 text-chart-2" />
                         <span className="truncate">{title}</span>
                       </div>
                     ))}
@@ -1020,17 +1000,18 @@ export function RoadmapDetail() {
                 )}
               </div>
             ) : (
-              <div className="flex gap-3 w-full">
+              <div className="flex w-full flex-col gap-3 sm:flex-row">
                 <Button
                   variant="outline"
                   onClick={() => setIsSubtopicSheetOpen(false)}
-                  className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
+                  className="flex-1"
                 >
                   Cancel
                 </Button>
                 <Button
+                  variant="fantasy"
                   onClick={handleGenerateFromSubtopics}
-                  className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
+                  className="flex-1"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   {selectedSubtopics.size === 0

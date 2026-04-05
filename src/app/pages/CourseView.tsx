@@ -173,22 +173,89 @@ export function CourseView() {
         <div className="space-y-4 rounded-2xl border border-border/70 bg-card/50 p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Lesson Task</h3>
-              <p className="text-sm text-muted-foreground">Type: <span className="capitalize">{activeLesson.task_type}</span></p>
+              <h3 className="text-lg font-semibold text-foreground">Active Exercise</h3>
+              <p className="text-sm text-muted-foreground">
+                Type: <span className="capitalize">{activeLesson.task_type}</span>
+              </p>
             </div>
             <Badge variant="outline">{activeLesson.task_type}</Badge>
           </div>
 
-          {activeLesson.task_content ? <div className="rounded-xl border border-border/70 bg-background/60 p-4 text-sm text-muted-foreground whitespace-pre-wrap">{activeLesson.task_content}</div> : null}
+          {activeLesson.task_content ? (
+            <div className="rounded-xl border border-border/70 bg-background/60 p-4 text-sm text-muted-foreground whitespace-pre-wrap">
+              {activeLesson.task_content}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This lesson includes a short response task tied to the material above.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-border/70 bg-background/35 p-4 text-sm text-muted-foreground">
+          This lesson is reading-focused. Use the workspace to review your checkpoint and mark it complete when ready.
+        </div>
+      )}
+    </div>
+  ) : (
+    <p className="text-muted-foreground">No lessons have been generated for this course yet.</p>
+  );
 
-          <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={activeLesson.task_type === 'project' ? 10 : 6} placeholder={activeLesson.task_type === 'coding' ? 'Write your code solution or explanation here...' : 'Write your answer here...'} />
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={() => void handleEvaluate()} disabled={evaluateLesson.isPending || !answer.trim()}>
-              {evaluateLesson.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Evaluating...</> : 'Evaluate Answer'}
-            </Button>
-            {evaluationResult?.is_correct ? <span className="text-sm font-medium text-chart-2">Ready to mark complete</span> : null}
+  const workspace = activeLesson ? (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card/30">
+      <div className="border-b border-border/70 px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              {activeLesson.task_type ? 'Practice workspace' : 'Lesson checkpoint'}
+            </div>
+            <p className="mt-1 text-sm text-foreground">
+              {activeLesson.task_type
+                ? 'Draft your response here, evaluate it, then mark the lesson complete.'
+                : 'Review the material and use the completion action when you are ready to move on.'}
+            </p>
           </div>
+          <Badge variant="outline" className="capitalize">
+            {activeLesson.task_type ?? 'read-only'}
+          </Badge>
+        </div>
+      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-4 p-4">
+          {activeLesson.task_type ? (
+            <>
+              {activeLesson.task_content ? (
+                <div className="rounded-2xl border border-border/70 bg-background/60 p-4 text-sm text-muted-foreground whitespace-pre-wrap">
+                  {activeLesson.task_content}
+                </div>
+              ) : null}
+
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-foreground">Your response</p>
+                  <p className="text-xs text-muted-foreground">
+                    {activeLesson.task_type === 'project' ? 'Long-form answers are welcome.' : 'Be specific and concise.'}
+                  </p>
+                </div>
+                <Textarea
+                  value={answer}
+                  onChange={(event) => setAnswer(event.target.value)}
+                  rows={activeLesson.task_type === 'project' ? 12 : 8}
+                  className="min-h-[18rem] bg-background/70"
+                  placeholder={
+                    activeLesson.task_type === 'coding'
+                      ? 'Write your code solution or explanation here...'
+                      : 'Write your answer here...'
+                  }
+                />
+              </div>
+            </>
+          ) : (
+            <div className="rounded-2xl border border-border/70 bg-background/60 p-5 text-sm text-muted-foreground">
+              This lesson does not include a graded exercise. When the explanation clicks, mark the lesson complete and move on to the next one.
+            </div>
+          )}
 
           {evaluationResult ? (
             <Alert className={cn(evaluationResult.is_correct ? 'border-chart-2/40 bg-chart-2/10' : 'border-destructive/40 bg-destructive/10')}>
@@ -200,52 +267,36 @@ export function CourseView() {
             </Alert>
           ) : null}
         </div>
-      ) : null}
+      </ScrollArea>
 
-      <div className="flex items-center justify-between gap-3 pt-8 mt-8 border-t border-border">
-        <Button variant="outline" onClick={() => selectLesson(lessons[currentIndex - 1]?.id ?? activeLesson.id)} disabled={currentIndex <= 0} className="border-border text-foreground hover:bg-secondary"><ChevronLeft className="mr-2 h-4 w-4" />Previous</Button>
-        <Button onClick={() => void handleMarkComplete()} disabled={completeLesson.isPending || !canMarkComplete} className="bg-gradient-to-r from-chart-2 to-chart-2/80 text-foreground px-6"><CheckCircle2 className="mr-2 h-4 w-4" />{completeLesson.isPending ? 'Saving...' : canMarkComplete ? 'Mark Complete' : 'Complete Task First'}</Button>
-        <Button variant="outline" onClick={() => selectLesson(lessons[currentIndex + 1]?.id ?? activeLesson.id)} disabled={currentIndex >= lessons.length - 1} className="border-border text-foreground hover:bg-secondary">Next<ChevronRight className="ml-2 h-4 w-4" /></Button>
-      </div>
-    </div>
-  ) : (
-    <p className="text-muted-foreground">No lessons have been generated for this course yet.</p>
-  );
-
-  const workspace = activeLesson ? (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#111827]">
-      <div className="border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.24em] text-slate-400">{activeLesson.task_type ?? 'lesson'}</div>
-      <div className="min-h-0 flex-1 p-4">
-        {activeLesson.task_type === 'coding' ? (
-          <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} className="h-full min-h-[16rem] border-white/10 bg-black/20 text-slate-100" placeholder="Work in progress notes or code here..." />
-        ) : (
-          <div className="h-full rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
-            Use the instruction panel for the lesson content and answer prompt.
-          </div>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2 border-t border-white/10 px-4 py-3">
-        <Button variant="outline" onClick={() => void handleEvaluate()} disabled={evaluateLesson.isPending || !answer.trim()} className="gap-2">
-          {evaluateLesson.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
-          Evaluate
-        </Button>
-        <Button onClick={() => void handleMarkComplete()} disabled={completeLesson.isPending || !canMarkComplete} className="gap-2">
-          <CheckCircle2 className="h-4 w-4" />
-          Mark Complete
-        </Button>
-      </div>
-      {evaluationResult ? (
-        <div className="border-t border-white/10 p-4 text-sm text-slate-300">
-          {evaluationResult.feedback}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-4 py-3">
+        <p className="text-xs text-muted-foreground">
+          {activeLesson.task_type
+            ? evaluationResult?.is_correct
+              ? 'Answer accepted. You can mark the lesson complete.'
+              : 'Evaluate your response before marking this lesson complete.'
+            : 'Reading checkpoint only.'}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {activeLesson.task_type ? (
+            <Button variant="outline" onClick={() => void handleEvaluate()} disabled={evaluateLesson.isPending || !answer.trim()} className="gap-2">
+              {evaluateLesson.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+              Evaluate
+            </Button>
+          ) : null}
+          <Button onClick={() => void handleMarkComplete()} disabled={completeLesson.isPending || !canMarkComplete} className="gap-2">
+            <CheckCircle2 className="h-4 w-4" />
+            {completeLesson.isPending ? 'Saving...' : canMarkComplete ? 'Mark Complete' : 'Complete Task First'}
+          </Button>
         </div>
-      ) : null}
+      </div>
     </div>
   ) : (
     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No lesson selected.</div>
   );
 
   return (
-      <LearningWorkspace
+    <LearningWorkspace
       header={{
         title: course.title,
         subtitle: course.description ?? 'Shared workspace for lessons and practice.',
@@ -256,12 +307,40 @@ export function CourseView() {
       railDescription="A lesson rail on the left, the lesson brief in the middle, and the active workspace on the right."
       rail={lessonRail}
       instructionTitle="Lesson Brief"
-      instructionMeta={<Badge variant="outline">Lesson {currentIndex + 1} of {lessons.length}</Badge>}
+      instructionMeta={<><Badge variant="outline">Lesson {currentIndex + 1} of {lessons.length}</Badge><Badge variant="outline">{estimatedMinutes} min</Badge></>}
       instruction={instruction}
-      workspaceTitle="workspace"
+      workspaceTitle="Workspace"
       workspaceMeta={<Badge variant="outline">{activeLesson?.task_type ?? 'read-only'}</Badge>}
       workspace={workspace}
-      footer={<div className="flex items-center justify-between gap-3 text-xs text-muted-foreground"><span>{activeLesson?.task_content ? 'Complete the task before marking the lesson complete.' : 'No task for this lesson.'}</span><span>{course.generation_mode}</span></div>}
+      footer={
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-muted-foreground">
+            <span>{course.generation_mode}</span>
+            <span className="mx-2">·</span>
+            <span>{activeLesson?.task_content ? 'Practice before moving to the next lesson.' : 'Reading checkpoint only.'}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => selectLesson(lessons[currentIndex - 1]?.id ?? activeLesson?.id ?? 0)}
+              disabled={currentIndex <= 0 || !activeLesson}
+              className="gap-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => selectLesson(lessons[currentIndex + 1]?.id ?? activeLesson?.id ?? 0)}
+              disabled={currentIndex >= lessons.length - 1 || !activeLesson}
+              className="gap-2"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      }
     />
   );
 }
