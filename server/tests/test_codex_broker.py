@@ -116,6 +116,15 @@ class CodexBrokerTests(unittest.IsolatedAsyncioTestCase):
             await runner.run(CodexJob("prompt", "json_object", 5, 1))
         self.assertEqual(runner._run_process.await_count, 2)
 
+    def test_runner_creates_output_file(self) -> None:
+        runner = CodexRunner()
+        output_file = runner._create_output_file(CodexJob("prompt", "text", 5, 0))
+        try:
+            self.assertTrue(output_file.exists())
+            self.assertEqual(output_file.suffix, ".out")
+        finally:
+            output_file.unlink(missing_ok=True)
+
     def test_settings_choose_codex_cli_backend(self) -> None:
         settings = Settings(AI_BACKEND="codex_cli", CODEX_EXECUTABLE="codex")
         self.assertTrue(settings.uses_codex_cli())

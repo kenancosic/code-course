@@ -385,14 +385,6 @@ class CodexRunner:
             return "''"
         return "'" + value.replace("'", "''") + "'"
 
-
-def _decode_process_output(raw: bytes | str | None) -> str:
-    if raw is None:
-        return ""
-    if isinstance(raw, str):
-        return raw
-    return raw.decode("utf-8", errors="replace")
-
     def _create_output_file(self, job: CodexJob) -> Path:
         runtime_dir = _broker_runtime_dir()
         with tempfile.NamedTemporaryFile(
@@ -404,6 +396,14 @@ def _decode_process_output(raw: bytes | str | None) -> str:
             delete=False,
         ) as handle:
             return Path(handle.name)
+
+
+def _decode_process_output(raw: bytes | str | None) -> str:
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    return raw.decode("utf-8", errors="replace")
 
 
 def _looks_like_model_issue(stderr: str, stdout: str = "") -> bool:

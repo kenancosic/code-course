@@ -260,6 +260,10 @@ export function RoadmapDetail() {
     }
   }, [nodesWithStatus]);
 
+  useEffect(() => {
+    setSelectedSubtopics(new Set());
+  }, [selectedNode?.topic_id]);
+
   // Group nodes by tier for flex layout
   const nodesByTier = useMemo(() => {
     const tiers = new Map<number, NodeWithStatus[]>();
@@ -915,7 +919,7 @@ export function RoadmapDetail() {
 
       {/* Subtopic Selection Sheet */}
       <Sheet open={isSubtopicSheetOpen} onOpenChange={setIsSubtopicSheetOpen}>
-        <SheetContent className="w-[min(92vw,32rem)] border-border/70 bg-card/95 text-foreground backdrop-blur-xl">
+        <SheetContent className="w-[92vw] max-w-[92vw] border-border/70 bg-card/95 text-foreground backdrop-blur-xl sm:w-[32rem] sm:max-w-[32rem]">
           <SheetHeader className="border-b border-border/70 px-6 py-5">
             <SheetTitle className="font-serif text-2xl text-foreground">Select Subtopics</SheetTitle>
             <SheetDescription className="text-muted-foreground">
@@ -945,7 +949,9 @@ export function RoadmapDetail() {
                   >
                     Clear
                   </button>
-                  <span className="ml-auto text-muted-foreground">{selectedSubtopics.size} selected</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {selectedSubtopics.size} subtopic{selectedSubtopics.size === 1 ? '' : 's'} selected
+                  </span>
                 </div>
 
                 <div className="space-y-2">
@@ -1000,23 +1006,23 @@ export function RoadmapDetail() {
                 )}
               </div>
             ) : (
-              <div className="flex w-full flex-col gap-3 sm:flex-row">
+              <div className="flex w-full flex-col gap-3">
                 <Button
                   variant="outline"
                   onClick={() => setIsSubtopicSheetOpen(false)}
-                  className="flex-1"
+                  className="w-full"
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="fantasy"
                   onClick={handleGenerateFromSubtopics}
-                  className="flex-1"
+                  className="h-auto min-h-10 w-full whitespace-normal py-3 text-center leading-tight"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   {selectedSubtopics.size === 0
                     ? 'Generate Course (main topic only)'
-                    : `Generate Course (${selectedSubtopics.size + 1} topics)`}
+                    : `Generate Course (${selectedSubtopics.size + 1} total topics)`}
                 </Button>
               </div>
             )}
